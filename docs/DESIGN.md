@@ -71,7 +71,8 @@ Echo Spot には `AcousticEchoCanceler` がありません。Grok の声をマ�
 
 - **関数呼び出しで渡します。** Speak-to-Speak では応答が音声で返るため、`{"text": ..., "avatar_state": ...}` のような JSON を本文に混ぜると読み上げられてしまいます。関数 `set_avatar_state(state)` の呼び出しは音声にならないので、本文と完全に分離できます。
 - 選べる状態は関数の定義で列挙しています（`happy` `excited` `curious` `confused` `surprised` `sad` `angry` `thinking` `working` `searching` `celebrate` `bored` `alerting` `notifying`）。ページ側でも名前を確かめ、知らない名前は無視します。
-- **優先順位**：Grok が選んだ表情は、その応答の `thinking`／`working`／`searching` より優先し、最低 2 秒は表示します。ユーザーが話し始めたら `listening` が勝ちます。
+- **優先順位**：Grok が選んだ表情は、その応答の `thinking`／`working`／`searching` より優先し、最低 2 秒は表示します（「うん」のような短い返事では 0.8 秒）。ユーザーが話し始めたら `listening` が勝ちます。
+- **余韻**：会話が応答の直後に終わったら、その応答で Grok が選んだ気持ちを 4 秒残してから待機中の暮らしに戻します。モデルには頼まず端末側で決めます（Grok との相談で決めた方針）。
 - 応答が `set_avatar_state` だけで音声がなかった場合は、関数の結果を返してから `response.create` を送り、返事を続けさせます。
 
 ### 入力待ちの表示
