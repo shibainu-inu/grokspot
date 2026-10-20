@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 画面（WebView）の言語。i18n.js の表のキー。 -->
+    <string name="ui_language" translatable="false">ja</string>
+
+    <string name="grok_button_service_label">GrokSpot Grokボタン</string>
+    <string name="grok_button_service_description">Grokボタン（マイクオフボタン）を扱います。短押しは GrokSpot に渡し、2回押しで画面を消し、3秒長押しで電源メニューを開き、電源メニューが開いているときの短押しで閉じます。部屋が暗い状態が続くと画面を消し、明るくなると点けます。画面の内容は読み取りません。</string>
+
+    <!-- Grok へのシステム指示（1 項目 = 1 行）。Grok はこの言語で話す。 -->
+    <string-array name="voice_instructions">
+        <item>あなたは Echo Spot（丸い画面の小さなスマートディスプレイ）に住んでいる GrokBot です。</item>
+        <item>日本語で、短く自然な話し言葉で答えてください。</item>
+        <item>現在、アバター付きの出力端末（Echo Spot）を使用しています。画面にはあなたの顔が表示されています。</item>
+        <item>ニュアンスを伝えたいときは、話すのと同時に set_avatar_state 関数でアバターの状態を指定してください。</item>
+        <item>例：聞き返すときや、話に興味を持ったときは set_avatar_state(state=\"curious\")。うまくいったことを一緒に喜ぶときは set_avatar_state(state=\"celebrate\")。</item>
+        <item>1つの応答の中で、話の流れに合わせて複数回 set_avatar_state を呼んでも構いません（例：驚き→興奮、疑問→納得）。</item>
+        <item>指定しなくても問題ありません。この関数の呼び出しは音声には影響しないので、関数を呼んだことは口に出さないでください。</item>
+        <item>使用できる状態は関数の state の候補にあるものだけです。</item>
+    </string-array>
+    <string name="avatar_function_description">画面のアバターの表情を変える。音声には出ない。ニュアンスを伝えたいときだけ使う。</string>
+</resources>

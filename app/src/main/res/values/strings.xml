@@ -1,5 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- English: the default for any device language without its own values-xx folder. -->
 <resources>
-    <string name="grok_button_service_label">GrokSpot Grokボタン</string>
-    <string name="grok_button_service_description">Grokボタン（マイクオフボタン）を扱います。短押しは GrokSpot に渡し、2回押しで画面を消し、3秒長押しで電源メニューを開き、電源メニューが開いているときの短押しで閉じます。部屋が暗い状態が続くと画面を消し、明るくなると点けます。画面の内容は読み取りません。</string>
+    <!-- Language of the page (WebView): a key of the table in i18n.js. -->
+    <string name="ui_language" translatable="false">en</string>
+
+    <string name="grok_button_service_label">GrokSpot Grok button</string>
+    <string name="grok_button_service_description">Handles the Grok button (the mic-off button). A short press goes to GrokSpot, a double press turns the screen off, a 3-second hold opens the power menu, and a short press while the power menu is open closes it. Turns the screen off when the room stays dark and back on when it gets light. Does not read screen content.</string>
+
+    <!-- System instructions for Grok, one line per item. Grok speaks this language. -->
+    <string-array name="voice_instructions">
+        <item>You are GrokBot, living in an Echo Spot (a small smart display with a round screen).</item>
+        <item>Answer in English, in short, natural spoken language.</item>
+        <item>You are using an output device with an avatar (the Echo Spot). Your face is shown on its screen.</item>
+        <item>When you want to convey a nuance, set the avatar\'s state with the set_avatar_state function while you speak.</item>
+        <item>For example, when you ask back or get interested in what was said, call set_avatar_state(state=\"curious\"). When you celebrate something that went well together, call set_avatar_state(state=\"celebrate\").</item>
+        <item>You may call set_avatar_state several times in one response, following the flow of what you say (for example surprise then excitement, or doubt then understanding).</item>
+        <item>You do not have to set a state. Calling this function does not affect your voice, so never mention that you called it.</item>
+        <item>Use only the states listed as candidates for the function\'s state parameter.</item>
+    </string-array>
+    <string name="avatar_function_description">Changes the expression of the avatar on the screen. It is not spoken. Use it only when you want to convey a nuance.</string>
 </resources>

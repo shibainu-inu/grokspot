@@ -112,12 +112,20 @@ adb shell cmd package set-home-activity com.grokbot.grokspot/.MainActivity
 
 再起動すると、ロック画面の上に直接顔が表示されます（暗証番号なしのロック画面を前提にしています）。
 
-## 8. タイムゾーン（任意）
+## 8. タイムゾーンと言語
 
-端末の時計が GMT になっている場合は、日本時間にしておくとログや時刻表示が合います（待機中の暮らしの「夜」の判定は、端末の設定にかかわらず日本時間で計算します）。
+**タイムゾーン**：待機中の暮らしは、端末の時計で「夜」（22〜6 時）を判定します。端末が GMT のままだと夜がずれるので、住んでいる地域に合わせてください。
 
 ```powershell
 adb shell service call alarm 3 s16 Asia/Tokyo
+```
+
+**言語**：GrokSpot は日本語・英語・中国語（簡体字）に対応し、端末の言語設定に従います。画面の文字・設定画面の文言・Grok が話す言語がそろって切り替わります。端末の「設定 → システム → 言語」で変えるか、root が使える場合は次のようにします。
+
+```powershell
+adb root
+adb shell setprop persist.sys.locale ja-JP    # en-US / zh-CN
+adb reboot
 ```
 
 ## 動作確認

@@ -21,8 +21,7 @@
   var DRAIN_DAY = 1 / (45 * MINUTE);
   var DRAIN_NIGHT = 1 / (15 * MINUTE);
   var RECOVER = 1 / (20 * MINUTE);
-  // 夜の判定は端末のタイムゾーン設定に左右されないよう、日本時間で行う。
-  var TIME_ZONE = 'Asia/Tokyo';
+  // Night by the device's local time, so set the device time zone (docs/SETUP.md, step 8).
   var NIGHT_FROM = 22;
   var NIGHT_UNTIL = 6;
 
@@ -106,7 +105,7 @@
   var state = null;
 
   function isNight() {
-    var hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: TIME_ZONE, hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
+    var hour = new Date().getHours();
     return hour >= NIGHT_FROM || hour < NIGHT_UNTIL;
   }
 

@@ -125,7 +125,8 @@ class VoiceSession(private val context: Context, private val listener: Listener)
         .put("type", "session.update")
         .put("session", JSONObject()
             .put("voice", VOICE)
-            .put("instructions", INSTRUCTIONS)
+            // Instructions in the device language (res/values*/strings.xml), so Grok speaks it too.
+            .put("instructions", context.resources.getStringArray(R.array.voice_instructions).joinToString("\n"))
             .put("turn_detection", JSONObject().put("type", "server_vad"))
             .put("audio", JSONObject()
                 .put("input", JSONObject().put("format", pcmFormat()))
@@ -133,7 +134,7 @@ class VoiceSession(private val context: Context, private val listener: Listener)
             .put("tools", JSONArray().put(JSONObject()
                 .put("type", "function")
                 .put("name", AVATAR_FUNCTION)
-                .put("description", "画面のアバターの表情を変える。音声には出ない。ニュアンスを伝えたいときだけ使う。")
+                .put("description", context.getString(R.string.avatar_function_description))
                 .put("parameters", JSONObject()
                     .put("type", "object")
                     .put("properties", JSONObject().put("state", JSONObject()
@@ -414,16 +415,5 @@ class VoiceSession(private val context: Context, private val listener: Listener)
             "happy", "excited", "curious", "confused", "surprised", "sad", "angry",
             "thinking", "working", "searching", "celebrate", "bored", "alerting", "notifying",
         )
-
-        val INSTRUCTIONS = """
-            あなたは Echo Spot（丸い画面の小さなスマートディスプレイ）に住んでいる GrokBot です。
-            日本語で、短く自然な話し言葉で答えてください。
-            現在、アバター付きの出力端末（Echo Spot）を使用しています。画面にはあなたの顔が表示されています。
-            ニュアンスを伝えたいときは、話すのと同時に set_avatar_state 関数でアバターの状態を指定してください。
-            例：聞き返すときや、話に興味を持ったときは set_avatar_state(state="curious")。うまくいったことを一緒に喜ぶときは set_avatar_state(state="celebrate")。
-            1つの応答の中で、話の流れに合わせて複数回 set_avatar_state を呼んでも構いません（例：驚き→興奮、疑問→納得）。
-            指定しなくても問題ありません。この関数の呼び出しは音声には影響しないので、関数を呼んだことは口に出さないでください。
-            使用できる状態は関数の state の候補にあるものだけです。
-        """.trimIndent()
     }
 }

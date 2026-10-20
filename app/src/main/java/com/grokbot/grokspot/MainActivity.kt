@@ -86,7 +86,9 @@ class MainActivity : ComponentActivity() {
         })
 
         hideSystemBars()
-        webView.loadUrl(PAGE_URL)
+        // The page shows its text in the language Android picked for this app's resources,
+        // so the screen, the settings and Grok's voice always agree.
+        webView.loadUrl("$PAGE_URL?lang=${getString(R.string.ui_language)}")
 
         voice = VoiceSession(this, object : VoiceSession.Listener {
             override fun onVoiceEvent(type: String, detail: String?) {

@@ -51,13 +51,12 @@
   var lastFeeling = null;
   var lastReplyEnd = 0;
 
-  var MIC_HINTS = { waiting: '話しかけてください', hearing: '聞いています…' };
   var micHint = document.getElementById('mic-hint');
 
   function mic(mode) {
     if (mode) {
       document.body.dataset.mic = mode;
-      micHint.textContent = MIC_HINTS[mode];
+      micHint.textContent = window.grokspotI18n.t('mic.' + mode);
     } else {
       delete document.body.dataset.mic;
     }

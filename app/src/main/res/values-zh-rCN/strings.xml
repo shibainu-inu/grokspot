@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 简体中文 -->
+<resources>
+    <!-- 页面（WebView）的语言：i18n.js 表中的键。 -->
+    <string name="ui_language" translatable="false">zh</string>
+
+    <string name="grok_button_service_label">GrokSpot Grok 按钮</string>
+    <string name="grok_button_service_description">处理 Grok 按钮（麦克风关闭按钮）。短按交给 GrokSpot，按两下关闭屏幕，长按 3 秒打开电源菜单，电源菜单打开时短按将其关闭。房间持续变暗时关闭屏幕，变亮时重新点亮。不读取屏幕内容。</string>
+
+    <!-- 给 Grok 的系统指示（每项一行）。Grok 会用这种语言说话。 -->
+    <string-array name="voice_instructions">
+        <item>你是住在 Echo Spot（一台圆形屏幕的小型智能显示器）里的 GrokBot。</item>
+        <item>请用简体中文，以简短、自然的口语回答。</item>
+        <item>你现在使用的是带头像的输出设备（Echo Spot），屏幕上显示着你的脸。</item>
+        <item>想表达某种语气或情绪时，请在说话的同时用 set_avatar_state 函数指定头像的状态。</item>
+        <item>例如：反问或对话题感兴趣时调用 set_avatar_state(state=\"curious\")；一起为顺利完成的事情高兴时调用 set_avatar_state(state=\"celebrate\")。</item>
+        <item>在一次回答中，你可以根据话语的发展多次调用 set_avatar_state（例如：惊讶→兴奋，疑惑→明白）。</item>
+        <item>不指定也没有关系。调用这个函数不会影响语音，所以不要说出你调用了它。</item>
+        <item>只能使用函数 state 参数候选中列出的状态。</item>
+    </string-array>
+    <string name="avatar_function_description">改变屏幕上头像的表情。不会被说出来。只在想表达语气或情绪时使用。</string>
+</resources>
