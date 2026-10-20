@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 画面オフ中も光センサーを読むため（CPU のみ起こしておく）と、明るくなったときに画面を点けるため。 -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Grok Voice: 会話の音声を送受信する。 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <application
+        android:allowBackup="false"
+        android:label="GrokSpot"
+        android:theme="@style/Theme.GrokSpot">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|density|uiMode">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- ホームアプリの候補に出すためのもの。実際の切り替えは端末側の設定で行う。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Grokボタン（短押し・2回押しで画面オフ・3秒で電源メニュー）と、暗い部屋での画面の自動オン・オフ。 -->
+        <service
+            android:name=".GrokButtonService"
+            android:exported="false"
+            android:label="@string/grok_button_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/grok_button_service" />
+        </service>
+    </application>
+</manifest>

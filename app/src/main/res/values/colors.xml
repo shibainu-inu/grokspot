@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ページの背景 (index.html) と同じ色。起動直後のちらつきを防ぐ。 -->
+    <color name="background">#1C1C1C</color>
+</resources>

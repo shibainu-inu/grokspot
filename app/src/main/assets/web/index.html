@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
+<title>GrokSpot</title>
+<style>
+  html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #1c1c1c;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  :root {
+    /*
+     * 顔（胴体）の直径。画面は直径 480px の円。まわりに虹色の軌跡や紙吹雪が
+     * 出る余白を残すため小さめにしている（軌跡は顔の直径の約 0.7 倍まで外へ広がる）。
+     */
+    --body: 300px;
+  }
+  /* 胴体は x.ai と同じ比率（bodyScale 228.541/210）で、canvas の 228.541/259 = 88.2% の直径。 */
+  #stage {
+    position: relative;
+    flex: none;
+    width: calc(var(--body) / 0.88239);
+    height: calc(var(--body) / 0.88239);
+  }
+  #face {
+    width: 100%;
+    height: 100%;
+    display: block;
+    will-change: transform;
+  }
+  /*
+   * 球体の陰影。ライブラリは胴体を単色でしか塗れないので、白い胴体の上に
+   * 同じ大きさの円を乗算で重ねる。黒い目は乗算しても黒のまま残る。
+   * 色は grokbot_color.png の実測値（ハイライト #fefefe → 中ほど #dedede → 縁 #bbbbbb）。
+   * 縁に白い線が出ないよう、胴体より 2px 大きくしている。
+   */
+  #shade {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: calc(var(--body) + 2px);
+    height: calc(var(--body) + 2px);
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(circle at 58% 44%, #fefefe 0%, #f4f4f4 14%, #dedede 48%, #bbbbbb 100%);
+    mix-blend-mode: multiply;
+    pointer-events: none;
+    will-change: transform;
+  }
+  #label {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 34px;
+    text-align: center;
+    font: 600 16px/1 system-ui, sans-serif;
+    color: #9aa3b5;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  #label.show { opacity: 1; }
+  /*
+   * 音声入力の目印（voice.js）。画面の縁に沿った光の輪と、下の一言。
+   * waiting: 話しかけられるのを待っている（ゆっくり明滅）
+   * hearing: ユーザーの声を聞いている（明るく点灯）
+   * 明滅は opacity だけを動かす（GPU で合成される）。
+   */
+  #mic-ring {
+    position: fixed;
+    inset: 4px;
+    border-radius: 50%;
+    border: 5px solid #4cc2ff;
+    box-shadow: 0 0 18px 2px rgba(76, 194, 255, 0.55), inset 0 0 18px 2px rgba(76, 194, 255, 0.35);
+    opacity: 0;
+    transition: opacity 0.4s;
+    pointer-events: none;
+    will-change: opacity;
+  }
+  #mic-hint {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 30px;
+    text-align: center;
+    font: 600 17px/1 system-ui, sans-serif;
+    color: #8fd6ff;
+    opacity: 0;
+    transition: opacity 0.4s;
+    pointer-events: none;
+  }
+  body[data-mic="waiting"] #mic-ring { animation: mic-breathe 2.4s ease-in-out infinite; }
+  body[data-mic="hearing"] #mic-ring { opacity: 1; }
+  body[data-mic="waiting"] #mic-hint,
+  body[data-mic="hearing"] #mic-hint { opacity: 1; }
+  /* 待機の目印と重ならないよう、ツアーの名札は隠す。 */
+  body[data-mic] #label { display: none; }
+  @keyframes mic-breathe {
+    0%, 100% { opacity: 0.25; }
+    50% { opacity: 0.8; }
+  }
+  /*
+   * 変形用の部品（「・・・」の両脇の点、「！」の棒）。毎フレーム描き直さないよう、
+   * 一度描いた絵を transform と opacity だけで動かす（GPU で合成される）。
+   */
+  .side-dot {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle at 58% 44%, #fefefe 0%, #f4f4f4 14%, #dedede 48%, #bbbbbb 100%);
+    pointer-events: none;
+    will-change: transform, opacity;
+  }
+  #bang-bar {
+    position: absolute;
+    inset: 0;
+    transform-origin: 0 0;
+    pointer-events: none;
+    will-change: transform, opacity;
+  }
+  /* 虹色の軌跡と紙吹雪（fx.js）。頭の後ろ側と手前側の 2 枚。 */
+  .fx {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  #bang-bar svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+</style>
+</head>
+<body>
+<canvas id="fx-back" class="fx"></canvas>
+<div id="stage">
+  <canvas id="face"></canvas>
+  <div id="shade"></div>
+  <div class="side-dot" hidden></div>
+  <div class="side-dot" hidden></div>
+  <div class="side-dot" hidden></div>
+  <div class="side-dot" hidden></div>
+  <!-- canvas と同じ座標系（viewBox -15 -15 259 259）で描いた「！」の棒。 -->
+  <div id="bang-bar" hidden>
+    <svg viewBox="-15 -15 259 259" aria-hidden="true">
+      <defs>
+        <!-- #shade と同じ陰影（circle at 58% 44% → 最遠の角まで）。 -->
+        <radialGradient id="ball" cx="0.58" cy="0.44" r="0.806">
+          <stop offset="0" stop-color="#fefefe"/>
+          <stop offset="0.14" stop-color="#f4f4f4"/>
+          <stop offset="0.48" stop-color="#dedede"/>
+          <stop offset="1" stop-color="#bbbbbb"/>
+        </radialGradient>
+      </defs>
+      <path fill="url(#ball)"
+        d="M99.2705 81.2705A15 15 0 0 1 129.2705 81.2705L122.7705 153.7705A8.5 8.5 0 0 1 105.7705 153.7705Z"/>
+    </svg>
+  </div>
+</div>
+<canvas id="fx-front" class="fx"></canvas>
+<div id="label"></div>
+<div id="mic-ring"></div>
+<div id="mic-hint"></div>
+<script src="grokbot.js"></script>
+<script src="fx.js"></script>
+<script src="motion.js"></script>
+<script src="life.js"></script>
+<script src="actions.js"></script>
+<script src="voice.js"></script>
+<script src="touch.js"></script>
+<script>
+(function () {
+  var lib = window.GrokBotLib;
+
+  // x.ai の「Avatar motion system」と同じ巡回（表示名・状態・表示時間）。
+  var TOUR = [
+    { label: 'Idle', state: 'idle', ms: 4200 },
+    { label: 'Working', state: 'working', ms: 4600 },
+    { label: 'Waiting', state: 'bored', ms: 4200 },
+    { label: 'Blocked', state: 'alerting', ms: 4200 },
+    { label: 'Thinking', state: 'thinking', ms: 4600 },
+    { label: 'Done', state: 'celebrate', ms: 4200 }
+  ];
+
+  var bot = new lib.GrokBot(document.getElementById('face'), {
+    state: 'idle',
+    shape: 'blob',
+    // grokbot_color.png に合わせた色。胴体は白で描き、陰影は #shade で付ける。
+    theme: { bodyColor: '#ffffff', eyeColor: '#0c0c0c', badgeColor: '#ffffff' },
+    // 状態ごとの表情プールを自動で巡回させる（既定は false で、表情が固定される）。
+    autoExpression: true,
+    // まばたきは motion.js がまぶた（eyeOpen）で行う。
+    autoBlink: false,
+    // 専用端末なので、端末の「アニメーションを減らす」設定があっても動かし続ける。
+    respectReducedMotion: false,
+    // 描画のタイミングは motion.js が決める（毎秒 30 フレーム、体の動きと同じフレームで目を描く）。
+    manualFrames: true,
+    // ここから下は x.ai の Grok Bot アバターの描き方に合わせる設定（デモ画像との実測比較で確認）。
+    // 胴体と目の比率（x.ai の胴体は 228.541、元の Flutter 版は 210）。
+    bodyScale: 228.541 / 210,
+    // まぶたは目の長い方向に閉じる（横線の目は半目で短くなる）。
+    lidAxis: 'major',
+    // 大きな目どうしが近づきすぎたら縮めて 5 単位のすき間を保つ。
+    minEyeGap: 5
+  });
+
+  // 体の揺れ・まぶた・視線・回転（x.ai の Avatar motion system を再現）。
+  var motion = new window.GrokSpotMotion(bot, {
+    face: document.getElementById('face'),
+    shade: document.getElementById('shade'),
+    sideDots: document.querySelectorAll('.side-dot'),
+    bangBar: document.getElementById('bang-bar'),
+    fx: new window.GrokSpotEffects(document.getElementById('fx-back'), document.getElementById('fx-front')),
+    frameRate: 30,
+    blinkCadence: function (state) { return lib.stateData[state].blinkCadence; }
+  });
+
+  var label = document.getElementById('label');
+  var labelTimer = null;
+  function flashLabel(text) {
+    label.textContent = text;
+    label.classList.add('show');
+    clearTimeout(labelTimer);
+    labelTimer = setTimeout(function () { label.classList.remove('show'); }, 1500);
+  }
+
+  // 巡回（ツアー）。DevTools から startTour() で始め、タップで次へ進む。外から setBotState を呼ぶと止まる。
+  var tourIndex = -1;
+  var tourTimer = null;
+  function tourStep(index) {
+    tourIndex = index % TOUR.length;
+    var step = TOUR[tourIndex];
+    motion.setState(step.state);
+    flashLabel(step.label);
+    clearTimeout(tourTimer);
+    tourTimer = setTimeout(function () { tourStep(tourIndex + 1); }, step.ms);
+  }
+
+  window.startTour = function () {
+    window.grokspotLife.stop();
+    tourStep(0);
+  };
+  window.stopTour = function () {
+    clearTimeout(tourTimer);
+    tourTimer = null;
+  };
+
+  window.setBotState = function (name) {
+    if (!Object.prototype.hasOwnProperty.call(lib.stateData, name)) {
+      console.warn('setBotState: unknown state ' + name);
+      return false;
+    }
+    window.stopTour();
+    window.grokspotLife.stop();
+    motion.setState(name);
+    return true;
+  };
+
+  window.isBotState = function (name) {
+    return Object.prototype.hasOwnProperty.call(lib.stateData, name);
+  };
+
+  window.getBotState = function () {
+    return bot.options.state;
+  };
+
+  // 画面に触れたときの反応は touch.js。巡回中のタップだけはここで次へ進める。
+  // 巡回は DevTools から startTour() で見られる。
+  window.tourActive = function () { return !!tourTimer; };
+  window.nextTourStep = function () { tourStep(tourIndex + 1); };
+
+  window.bot = bot;
+  window.motion = motion;
+
+  window.grokspot.act('idle');
+})();
+</script>
+</body>
+</html>

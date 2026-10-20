@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="grok_button_service_label">GrokSpot Grokボタン</string>
+    <string name="grok_button_service_description">Grokボタン（マイクオフボタン）を扱います。短押しは GrokSpot に渡し、2回押しで画面を消し、3秒長押しで電源メニューを開き、電源メニューが開いているときの短押しで閉じます。部屋が暗い状態が続くと画面を消し、明るくなると点けます。画面の内容は読み取りません。</string>
+</resources>

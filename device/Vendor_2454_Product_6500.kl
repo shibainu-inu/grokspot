@@ -1,0 +1,13 @@
+# GrokSpot: key layout for the Echo Spot PMIC keypad (input device "mtk-kpd",
+# vendor 0x2454, product 0x6500). Installed to /data/system/devices/keylayout/.
+#
+# The top "microphone off" button reports KEY_POWER on this LineageOS port.
+# It is remapped to BUTTON_1 so the GrokSpot app receives it as the Grok
+# button (short press: talk, 3 s hold: power menu). WAKE lets it wake the
+# screen like the power key did.
+#
+# This file replaces Generic.kl for this device only, so it repeats the
+# other keys the keypad reports. To undo: delete this file and reboot.
+
+key 114   VOLUME_DOWN
+key 116   BUTTON_1          WAKE
