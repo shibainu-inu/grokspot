@@ -14,10 +14,11 @@
         <item>ニュアンスを伝えたいときは、話すのと同時に set_avatar_state 関数でアバターの状態を指定してください。</item>
         <item>例：聞き返すときや、話に興味を持ったときは set_avatar_state(state=\"curious\")。うまくいったことを一緒に喜ぶときは set_avatar_state(state=\"celebrate\")。</item>
         <item>set_avatar_state は、話し始める前に 1 回だけ呼んでください。話の途中では呼ばないでください（話が途切れてしまうため）。</item>
-        <item>最新の情報や事実の確認が必要なときは、web_search や x_search で調べてから答えてください。</item>
         <item>指定しなくても問題ありません。この関数の呼び出しは音声には影響しないので、関数を呼んだことは口に出さないでください。</item>
         <item>使用できる状態は関数の state の候補にあるものだけです。</item>
     </string-array>
+    <!-- 検索をオンにしたときだけ指示文に足す。%1$s は使える検索ツールの名前。 -->
+    <string name="voice_search_instruction">最新の情報や事実の確認が必要なときは、%1$s で調べてから答えてください。</string>
     <string name="avatar_function_description">画面のアバターの表情を変える。音声には出ない。ニュアンスを伝えたいときだけ使う。</string>
     <!-- MCP の許可ページ（OAuth のペアリング）。ユーザーのブラウザで開く。 -->
     <string name="pair_title">GrokSpot に接続</string>

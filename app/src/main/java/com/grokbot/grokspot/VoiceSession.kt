@@ -121,30 +121,48 @@ class VoiceSession(private val context: Context, private val listener: Listener)
         socket?.send(json.toString())
     }
 
-    private fun sessionConfig() = JSONObject()
-        .put("type", "session.update")
-        .put("session", JSONObject()
-            .put("voice", VOICE)
-            // Instructions in the device language (res/values*/strings.xml), so Grok speaks it too.
-            .put("instructions", context.resources.getStringArray(R.array.voice_instructions).joinToString("\n") +
-                "\n" + nowLine())
-            .put("turn_detection", JSONObject().put("type", "server_vad"))
-            .put("audio", JSONObject()
-                .put("input", JSONObject().put("format", pcmFormat()))
-                .put("output", JSONObject().put("format", pcmFormat())))
-            .put("tools", JSONArray().put(JSONObject()
-                .put("type", "function")
-                .put("name", AVATAR_FUNCTION)
-                .put("description", context.getString(R.string.avatar_function_description))
-                .put("parameters", JSONObject()
-                    .put("type", "object")
-                    .put("properties", JSONObject().put("state", JSONObject()
-                        .put("type", "string")
-                        .put("enum", JSONArray(AVATAR_STATES))))
-                    .put("required", JSONArray().put("state"))))
-                // Built-in tools: run on xAI's side within the reply, nothing to send back.
-                .put(JSONObject().put("type", "web_search"))
-                .put(JSONObject().put("type", "x_search"))))
+    private fun sessionConfig(): JSONObject {
+        val search = searchTools()
+        val tools = JSONArray().put(JSONObject()
+            .put("type", "function")
+            .put("name", AVATAR_FUNCTION)
+            .put("description", context.getString(R.string.avatar_function_description))
+            .put("parameters", JSONObject()
+                .put("type", "object")
+                .put("properties", JSONObject().put("state", JSONObject()
+                    .put("type", "string")
+                    .put("enum", JSONArray(AVATAR_STATES))))
+                .put("required", JSONArray().put("state"))))
+        // Built-in tools: run on xAI's side within the reply, nothing to send back.
+        search.forEach { tools.put(JSONObject().put("type", it)) }
+        // Instructions in the device language (res/values*/strings.xml), so Grok speaks it too.
+        var instructions = context.resources.getStringArray(R.array.voice_instructions).joinToString("\n")
+        if (search.isNotEmpty()) {
+            instructions += "\n" + context.getString(R.string.voice_search_instruction, search.joinToString(" / "))
+        }
+        instructions += "\n" + nowLine()
+        return JSONObject()
+            .put("type", "session.update")
+            .put("session", JSONObject()
+                .put("voice", VOICE)
+                .put("instructions", instructions)
+                .put("turn_detection", JSONObject().put("type", "server_vad"))
+                .put("audio", JSONObject()
+                    .put("input", JSONObject().put("format", pcmFormat()))
+                    .put("output", JSONObject().put("format", pcmFormat())))
+                .put("tools", tools))
+    }
+
+    /**
+     * The search tools the user turned on (files/voice_search, written by
+     * scripts/set-voice-search.ps1). Off by default: searches cost extra.
+     */
+    private fun searchTools(): List<String> {
+        val text = File(context.filesDir, SEARCH_FILE).takeIf { it.isFile }?.readText().orEmpty()
+        // Letters only: a file written from Windows PowerShell may start with a byte order mark.
+        val wanted = text.split(',', ' ', '\n').map { token -> token.filter(Char::isLetter).lowercase() }.toSet()
+        return listOfNotNull("web_search".takeIf { "web" in wanted }, "x_search".takeIf { "x" in wanted })
+    }
 
     private fun pcmFormat() = JSONObject().put("type", "audio/pcm").put("rate", SAMPLE_RATE)
 
@@ -159,7 +177,7 @@ class VoiceSession(private val context: Context, private val listener: Listener)
 
     private inner class Events : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
-            Log.i(TAG, "Connected")
+            Log.i(TAG, "Connected (search: ${searchTools().ifEmpty { listOf("off") }.joinToString()})")
             send(sessionConfig())
             player = Player()
             mic = Thread(::recordLoop, "GrokSpot-mic").also { it.start() }
@@ -424,6 +442,7 @@ class VoiceSession(private val context: Context, private val listener: Listener)
         const val MODEL = "grok-voice-latest"
         const val VOICE = "eve"
         const val KEY_FILE = "xai_api_key"
+        const val SEARCH_FILE = "voice_search"
         const val SAMPLE_RATE = 24_000
         const val CHUNK_BYTES = SAMPLE_RATE / 25 * 2 // 40 ms of mono PCM16
         const val LEVEL_SLICE_BYTES = SAMPLE_RATE / 30 * 2

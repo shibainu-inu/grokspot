@@ -22,7 +22,7 @@ Voice API のイベントで確実に判定できる状態は自動で切り替�
 | 発話検出 | `turn_detection: { type: "server_vad" }`（サーバー側） |
 | 音声形式 | 入力・出力とも `audio/pcm` 24 kHz モノラル 16 bit |
 | 声 | `eve` |
-| ツール | 関数 `set_avatar_state`（4 章）と、組み込みの `web_search`・`x_search`（xAI 側で実行され、こちらから結果を返す必要はない） |
+| ツール | 関数 `set_avatar_state`（4 章）。検索をオンにしたときは、組み込みの `web_search`・`x_search` も（xAI 側で実行され、こちらから結果を返す必要はない。既定はオフ） |
 | 会話の開始・終了 | Grok ボタンで接続・切断。60 秒間会話が動かなければ自動で切断 |
 
 > **実機で確認したこと（2026 年 10 月）**：`input_audio_buffer.speech_started` / `speech_stopped` は xAI のドキュメントに記載がないが、実際には送られてくる。

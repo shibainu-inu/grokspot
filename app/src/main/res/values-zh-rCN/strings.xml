@@ -15,10 +15,11 @@
         <item>想表达某种语气或情绪时，请在说话的同时用 set_avatar_state 函数指定头像的状态。</item>
         <item>例如：反问或对话题感兴趣时调用 set_avatar_state(state=\"curious\")；一起为顺利完成的事情高兴时调用 set_avatar_state(state=\"celebrate\")。</item>
         <item>请在开始说话之前调用一次 set_avatar_state。不要在说话中途调用（会让语音中断）。</item>
-        <item>需要最新信息或核实事实时，请先用 web_search 或 x_search 查询再回答。</item>
         <item>不指定也没有关系。调用这个函数不会影响语音，所以不要说出你调用了它。</item>
         <item>只能使用函数 state 参数候选中列出的状态。</item>
     </string-array>
+    <!-- 仅在开启搜索时加入指示。%1$s：已开启的搜索工具名称。 -->
+    <string name="voice_search_instruction">需要最新信息或核实事实时，请先用 %1$s 查询再回答。</string>
     <string name="avatar_function_description">改变屏幕上头像的表情。不会被说出来。只在想表达语气或情绪时使用。</string>
     <!-- MCP 授权页面（OAuth 配对），在用户的浏览器中打开。 -->
     <string name="pair_title">连接到 GrokSpot</string>

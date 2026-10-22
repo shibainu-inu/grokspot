@@ -15,10 +15,11 @@
         <item>When you want to convey a nuance, set the avatar\'s state with the set_avatar_state function while you speak.</item>
         <item>For example, when you ask back or get interested in what was said, call set_avatar_state(state=\"curious\"). When you celebrate something that went well together, call set_avatar_state(state=\"celebrate\").</item>
         <item>Call set_avatar_state once, before you start speaking. Do not call it in the middle of what you say (it breaks up your speech).</item>
-        <item>When you need up-to-date information or to check a fact, look it up with web_search or x_search before you answer.</item>
         <item>You do not have to set a state. Calling this function does not affect your voice, so never mention that you called it.</item>
         <item>Use only the states listed as candidates for the function\'s state parameter.</item>
     </string-array>
+    <!-- Added to the instructions only when search is on. %1$s: the search tools that are on. -->
+    <string name="voice_search_instruction">When you need up-to-date information or to check a fact, look it up with %1$s before you answer.</string>
     <string name="avatar_function_description">Changes the expression of the avatar on the screen. It is not spoken. Use it only when you want to convey a nuance.</string>
     <!-- MCP approval page (OAuth pairing), opened in the user's browser. -->
     <string name="pair_title">Connect to GrokSpot</string>

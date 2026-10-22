@@ -22,7 +22,7 @@ LineageOS を入れた Echo Spot の上で動き、xAI の Grok Voice API と音
 
 | 機能 | 内容 |
 |---|---|
-| 音声会話 | 本体上部のボタン（元はマイクオフボタン）を押すと Grok Voice と会話。天気やニュースなどは Grok が Web・X を検索して答える。もう一度押すか、60 秒話さないと終了 |
+| 音声会話 | 本体上部のボタン（元はマイクオフボタン）を押すと Grok Voice と会話。検索をオンにすれば、天気やニュースなどは Grok が Web・X を検索して答える。もう一度押すか、60 秒話さないと終了 |
 | 表情の連動 | 会話の進み具合（聞いている → 考えている → 話している → 待機）を表情で表示。Grok が自分で表情を選ぶこともある |
 | 入力待ちの表示 | 話しかけてよいときは画面の縁が青く光り、「話しかけてください」と出る |
 | 待機中の暮らし | 休んでいる間も小さな仕草を続け、見回す・考えごと・鼻歌・落書き・遊ぶ・変形を試してみる などを、その都度組み合わせて自然につなぐ。気分と元気で選ぶものが変わり、まれにくしゃみやひとりダンスも。夜は朝まで眠る |
@@ -48,7 +48,7 @@ LineageOS を入れた Echo Spot の上で動き、xAI の Grok Voice API と音
   - Android Studio（同梱の JDK と Android SDK を使用）
   - Node.js（顔の描画ライブラリを改造する場合のみ。ビルド済みのものを同梱しているので、普段は不要）
   - adb（Android SDK Platform-Tools）
-- **xAI の API キー**（Grok Voice の利用料金がかかります）
+- **xAI の API キー**（Grok Voice の利用料金がかかります。目安は下の「[Grok Voice の料金と検索](#grok-voice-の料金と検索)」）
 
 ## クイックスタート
 
@@ -63,6 +63,31 @@ powershell -ExecutionPolicy Bypass -File scripts\set-api-key.ps1
 
 # 3. ボタン用のサービスを有効にし、ホームアプリにする（SETUP.md の手順 5〜7）
 ```
+
+### Grok Voice の料金と検索
+
+ボタンで話す会話（Grok Voice）は、xAI の API の従量課金です。料金は変わることがあるので、使う前に [xAI の料金ページ](https://docs.x.ai/docs/models) を確かめてください（以下は 2026 年 10 月時点の目安）。
+
+| 項目 | 料金の目安 |
+|---|---|
+| Grok Voice（音声での会話） | 1 分あたり 0.08 ドル（1 時間 4.80 ドル） |
+| Web 検索 | 1,000 回あたり約 5 ドル（1 回約 0.005 ドル） |
+| X 検索 | 1,000 回あたり約 5 ドル。取得した投稿やプロフィールの数で決まる料金体系に変わったという情報もあり、1 回の検索で高くなることがある |
+
+- 会話は、ボタンを押してから、もう一度押すか 60 秒話さないと切れるまでの間だけつながります。つながっていない間は料金はかかりません。
+- 料金のほとんどは会話の長さで決まります。検索を使うと答えが長くなりやすく、その分の音声の料金も増えます。
+- 使いすぎが心配なら、xAI のコンソールで使用量を確かめたり、上限を設定したりしてください。
+
+**検索は、最初はオフです。** オフのままでも会話はできますが、天気やニュースなど最新の情報は答えられません。オンにするには、PC から次を実行します（次の会話から効きます）。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\set-voice-search.ps1 -Web        # Web 検索だけオン（おすすめ）
+powershell -ExecutionPolicy Bypass -File scripts\set-voice-search.ps1 -Web -X     # X 検索もオン
+powershell -ExecutionPolicy Bypass -File scripts\set-voice-search.ps1 -Off        # オフに戻す
+powershell -ExecutionPolicy Bypass -File scripts\set-voice-search.ps1             # 今の設定を見る
+```
+
+検索をオンにすると、Grok は必要なときに自分で検索してから答えます。検索の間、顔は「探している」表情になります。
 
 ### 自分の GrokBot から顔を動かす（任意）
 
@@ -98,6 +123,7 @@ device/
 scripts/
   build-web.ps1          描画ライブラリを改造したときに grokbot.js を作り直す（通常は不要）
   set-api-key.ps1        API キーを端末のアプリ専用領域に書き込む
+  set-voice-search.ps1   Grok Voice の検索（Web・X）をオン・オフする（既定はオフ）
   set-mcp-token.ps1      MCP の認証の管理（トークンの表示・作り直し、OAuth の許可の取り消し）
   mcp-call.ps1           PC から MCP サーバーを呼んで動作を確かめる
 docs/

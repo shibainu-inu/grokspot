@@ -66,6 +66,14 @@ powershell -ExecutionPolicy Bypass -File scripts\set-api-key.ps1
 - 消すときは `-Remove` を付けて実行します。
 - Claude Code などから `!` で実行する場合は bash 経由になるので、パスはスラッシュ区切りで書いてください（`C:/.../scripts/set-api-key.ps1`）。
 
+### 検索（任意）
+
+Grok Voice の検索は、料金がかかるので最初はオフです。オンにする方法と料金の目安は、README の「Grok Voice の料金と検索」を見てください。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\set-voice-search.ps1 -Web
+```
+
 ## 5. ボタン用のサービスを有効にする
 
 `GrokButtonService` はユーザー補助（アクセシビリティ）サービスです。Grok ボタンの押し方の判定と、暗い部屋での画面のオン・オフを担当します。画面の内容は読みません。
