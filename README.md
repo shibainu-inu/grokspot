@@ -27,7 +27,7 @@ LineageOS を入れた Echo Spot の上で動き、xAI の Grok Voice API と音
 | 入力待ちの表示 | 話しかけてよいときは画面の縁が青く光り、「話しかけてください」と出る |
 | 待機中の暮らし | 休む・見回す・考えごと・鼻歌・遊ぶ・落書き・うたた寝・睡眠を、「元気」の値に合わせて自然につなぐ。夜は朝まで眠る |
 | タッチ | 目と頭が指を追う。頭のてっぺんを撫でる・目をつつく・体をつつく・何もない所を触る・連打で反応が変わる |
-| GrokBot から操作（MCP） | 内蔵の MCP サーバー（ポート 8765）のツール `set_avatar_state`（一言の吹き出し付き）と `get_avatar_state` で、スマホや PC の GrokBot が顔を動かせる。詳しくは [docs/MCP.md](docs/MCP.md) |
+| GrokBot から操作（MCP） | 内蔵の MCP サーバー（ポート 8765）のツール `set_avatar_state`（顔の下に絵文字や短い単語を添えられる）と `get_avatar_state` で、スマホや PC の GrokBot が顔を動かせる。詳しくは [docs/MCP.md](docs/MCP.md) |
 | 変形とエフェクト | 考え中の「・・・」、警告の「！」、レーダー、進捗リング、ペンなど 14 種の変形と、紙吹雪・虹色の軌跡 |
 | 専用端末として | ホームアプリとして起動。暗い部屋では画面が消え、明るくなるとつく。ボタン長押しで電源メニュー |
 
@@ -93,7 +93,7 @@ app/src/main/assets/web/
   fx.js                  紙吹雪・虹色の軌跡・変形の部品の描画
   actions.js             「聞く」「考える」などの動作 → 表情の対応表
   voice.js               会話のイベント → 表情（仕様は docs/AVATAR-STATE-SPEC.md）
-  external.js            MCP から届いた状態 → 表情と一言の吹き出し
+  external.js            MCP から届いた状態 → 表情と、顔の下の絵文字・単語
   pairing.js             OAuth の確認コードを画面に出す
   life.js                待機中の暮らし（元気の値、昼と夜）
   touch.js               タッチの位置ごとの反応

@@ -10,9 +10,9 @@
 //   "idle" hands the face back at once. A new call restarts the hold.
 // - Every change that is shown gets one emphasis (motion.emphasize: a small pop,
 //   a blink and bright rings), so it is clear the agent chose this face.
-// - A short caption above the face goes with the state: the agent's own, or by
-//   default an emoji for a feeling and a short phrase for an action. It goes
-//   away with the state.
+// - A caption under the face goes with the state: an emoji or a short word,
+//   the agent's own or by default (an emoji for a feeling, a word for an
+//   action). No bubble and no sentences. It goes away with the state.
 (function () {
   'use strict';
 
@@ -50,6 +50,7 @@
     captionCheck = null;
     captionState = null;
     bubble.classList.remove('show');
+    document.body.classList.remove('captioned');
     last.caption = null;
   }
 
@@ -62,6 +63,7 @@
     // Restart the pop-in animation.
     void bubble.offsetWidth;
     bubble.classList.add('show');
+    document.body.classList.add('captioned');
     captionState = name;
     last.caption = text;
     // Gone as soon as the face shows something else (the hold ended, a conversation moved on).

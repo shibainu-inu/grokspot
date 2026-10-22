@@ -49,7 +49,7 @@ object McpServer {
         "confused", "surprised", "sad", "angry", "celebrate", "bored", "alerting", "notifying",
     )
 
-    private const val CAPTION_MAX = 15
+    private const val CAPTION_MAX = 8
     private const val MAX_DURATION_SEC = 600
 
     /** A state from set_avatar_state: caption null = the state's default, "" = none. */
@@ -422,7 +422,7 @@ object McpServer {
                     .put("instructions", INSTRUCTIONS))
             }
             "ping" -> result(id, JSONObject())
-            "tools/list" -> result(id, JSONObject().put("tools", JSONArray().put(setStateTool()).put(getStateTool())))
+            "tools/list" -> { Log.i(TAG, "tools/list"); result(id, JSONObject().put("tools", JSONArray().put(setStateTool()).put(getStateTool()))) }
             "tools/call" -> callTool(id, params)
             else -> error(id, -32601, "Method not found: $method")
         }
@@ -470,9 +470,9 @@ object McpServer {
                     .put("enum", JSONArray(STATES)))
                 .put("caption", JSONObject()
                     .put("type", "string")
-                    .put("description", "Optional short caption shown above the face, up to $CAPTION_MAX characters " +
-                        "(e.g. \"調べ中…\", \"要確認！\"). Omit it for a default (an emoji for feelings, a short " +
-                        "phrase for actions); pass \"\" for none. It disappears when the state does."))
+                    .put("description", "Optional: one emoji or a short word shown under the face, up to $CAPTION_MAX characters " +
+                        "(e.g. \"🎉\", \"検索中\", \"要確認\"). Not a sentence. Omit it for a default (an emoji " +
+                        "for feelings, a word for actions); pass \"\" for none. It disappears when the state does."))
                 .put("duration_sec", JSONObject()
                     .put("type", "number")
                     .put("minimum", 1).put("maximum", MAX_DURATION_SEC)
@@ -516,6 +516,7 @@ object McpServer {
     }
 
     private fun getState(id: Any, args: JSONObject): JSONObject {
+        Log.i(TAG, "get_avatar_state")
         val status = queryPage?.let { query ->
             val latch = java.util.concurrent.CountDownLatch(1)
             var reply: String? = null
