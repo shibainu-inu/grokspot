@@ -43,7 +43,7 @@
     code.textContent = '✓';
     hint.textContent = '';
     open(DONE_MS);
-    window.motion.emphasize();
+    window.grokspot.external.emphasize();
   }
 
   window.grokspot.pairing = { show: show, hide: hide, done: done };

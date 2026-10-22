@@ -93,7 +93,7 @@ app/src/main/assets/web/
   fx.js                  紙吹雪・虹色の軌跡・変形の部品の描画
   actions.js             「聞く」「考える」などの動作 → 表情の対応表
   voice.js               会話のイベント → 表情（仕様は docs/AVATAR-STATE-SPEC.md）
-  external.js            MCP から届いた状態 → 表情と、顔の下の絵文字・単語
+  external.js            MCP から届いた状態 → 表情、画面下の絵文字・単語、縁の光
   pairing.js             OAuth の確認コードを画面に出す
   life.js                待機中の暮らし（元気の値、昼と夜）
   touch.js               タッチの位置ごとの反応

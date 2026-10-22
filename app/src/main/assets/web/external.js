@@ -8,11 +8,12 @@
 // - Otherwise it takes the face over from the idle life until the next call or
 //   the hold (duration_sec, default HOLD_MS), then the idle life comes back.
 //   "idle" hands the face back at once. A new call restarts the hold.
-// - Every change that is shown gets one emphasis (motion.emphasize: a small pop,
-//   a blink and bright rings), so it is clear the agent chose this face.
-// - A caption under the face goes with the state: an emoji or a short word,
-//   the agent's own or by default (an emoji for a feeling, a word for an
-//   action). No bubble and no sentences. It goes away with the state.
+// - Every change that is shown gets one emphasis, so it is clear the agent chose
+//   this face: the head pops and blinks (motion.emphasize) and the screen edge
+//   lights up once, in the same style as the mic ring.
+// - A caption goes with the state, in the same place and style as the mic hint
+//   ("話しかけてください"): an emoji or a short word, the agent's own or by default
+//   (an emoji for a feeling, a word for an action). It goes away with the state.
 (function () {
   'use strict';
 
@@ -30,10 +31,20 @@
   var PHRASE = { thinking: true, working: true, searching: true, alerting: true, notifying: true, listening: true };
 
   var hold = null;
+  var ring = document.getElementById('mcp-ring');
   var bubble = document.getElementById('caption');
   var captionState = null;
   var captionCheck = null;
   var last = { state: null, since: null, caption: null };
+
+  /** The one-off emphasis: a pop and blink of the head and a flash of the screen edge. */
+  function emphasize() {
+    window.motion.emphasize();
+    ring.classList.remove('flash');
+    // Restart the animation even if it is still running.
+    void ring.offsetWidth;
+    ring.classList.add('flash');
+  }
 
   function talking() {
     return window.grokspot.voice && window.grokspot.voice.connected();
@@ -60,8 +71,6 @@
     bubble.textContent = text;
     // A lone emoji is drawn bigger than words.
     bubble.classList.toggle('emoji', /^\p{Extended_Pictographic}[️‍\p{Extended_Pictographic}]*$/u.test(text));
-    // Restart the pop-in animation.
-    void bubble.offsetWidth;
     bubble.classList.add('show');
     document.body.classList.add('captioned');
     captionState = name;
@@ -92,14 +101,14 @@
       window.grokspot.voice.event('external_state', name);
       // Skipped while the user is speaking: then there is nothing to emphasize.
       if (window.getBotState() !== name) return true;
-      window.motion.emphasize();
+      emphasize();
       showCaption(name, text);
       remember(name);
       // In a conversation the voice integration owns the face; the hold only times the caption.
       hold = setTimeout(hideCaption, ms);
       return true;
     }
-    window.motion.emphasize();
+    emphasize();
     if (name === 'idle') {
       hideCaption();
       window.grokspot.act('idle');
@@ -139,5 +148,5 @@
     };
   }
 
-  window.grokspot.external = { state: state, status: status };
+  window.grokspot.external = { state: state, status: status, emphasize: emphasize };
 })();

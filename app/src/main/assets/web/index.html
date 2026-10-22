@@ -109,28 +109,46 @@
   /* 待機の目印と重ならないよう、ツアーの名札は隠す。 */
   body[data-mic] #label { display: none; }
   /*
-   * MCP の一言（external.js）。顔の下に、絵文字か短い単語だけを出す（吹き出しはなし）。
+   * MCP の一言（external.js）。マイクの案内文と同じ場所・同じ文字で、絵文字か短い単語だけを出す。
    * 状態が変わると消える。
    */
   #caption {
     position: fixed;
-    left: 50%;
-    /* 顔のすぐ下。丸い画面でも横幅が取れる高さ。 */
-    top: calc(50% + 158px);
-    max-width: 280px;
-    color: #f2f2f2;
-    font: 700 22px/1.2 system-ui, sans-serif;
-    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+    left: 0;
+    right: 0;
+    bottom: 30px;
+    text-align: center;
+    font: 600 17px/1 system-ui, sans-serif;
+    color: #8fd6ff;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    transform: translate(-50%, 6px) scale(0.85);
     opacity: 0;
-    transition: opacity 0.25s, transform 0.25s;
+    transition: opacity 0.4s;
     pointer-events: none;
   }
-  #caption.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
-  #caption.emoji { font-size: 36px; text-shadow: none; }
+  #caption.show { opacity: 1; }
+  /* 絵文字は少しだけ大きく、同じ下端にそろえる。 */
+  #caption.emoji { font-size: 24px; bottom: 26px; }
+  /*
+   * MCP で顔が変わったときの光（external.js）。マイクの輪と同じ見た目で、一度だけ光って消える
+   * （光り続けるのは「話しかけてよい」の印なので、こちらは光り続けない）。
+   */
+  #mcp-ring {
+    position: fixed;
+    inset: 4px;
+    border-radius: 50%;
+    border: 5px solid #4cc2ff;
+    box-shadow: 0 0 18px 2px rgba(76, 194, 255, 0.55), inset 0 0 18px 2px rgba(76, 194, 255, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    will-change: opacity;
+  }
+  #mcp-ring.flash { animation: mcp-flash 1.8s ease-out; }
+  @keyframes mcp-flash {
+    0% { opacity: 0; }
+    15% { opacity: 1; }
+    55% { opacity: 0.8; }
+    100% { opacity: 0; }
+  }
   /* 一言が出ている間は、同じ場所のマイクの案内文を隠す（青い輪は残す）。 */
   body.captioned #mic-hint { opacity: 0 !important; }
   /*
@@ -224,6 +242,7 @@
 <div id="label"></div>
 <div id="mic-ring"></div>
 <div id="mic-hint"></div>
+<div id="mcp-ring"></div>
 <div id="caption" aria-live="polite"></div>
 <div id="pairing" aria-live="polite">
   <div class="pair-title"></div>

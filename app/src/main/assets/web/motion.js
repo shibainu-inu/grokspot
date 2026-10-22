@@ -88,10 +88,6 @@
   // the face for MORPH_REST_MS, then again.
   var MORPH_HOLD = { progress: 2500, spawning: 2000 };
   var MORPH_REST_MS = 1500;
-  // emphasize(): how long each ring takes to spread, the delay of the second one, and their colour.
-  var EMPHASIS_MS = 750;
-  var EMPHASIS_GAP_MS = 160;
-  var EMPHASIS_COLOR = '#ffffff';
   // Virtual spin (rad/s) that flings the ribbon trails while loading or humming.
   var WHIRL_BASE = { loading: 3, humming: 1.6 };
 
@@ -259,11 +255,10 @@
 
   /**
    * Marks a deliberate change of face (an agent chose it over MCP): the head
-   * pops a little and blinks, and two bright rings ripple out from its edge.
+   * pops a little and blinks. external.js adds the screen-edge flash.
    */
   GrokSpotMotion.prototype.emphasize = function () {
     var now = performance.now();
-    this.emphasisAt = now;
     this.scale.v += 1.6;
     this.blink(now);
   };
@@ -886,16 +881,11 @@
     var winkT = (now - this.winkStart) / WINK_MS;
     var wink = winkT >= 0 && winkT < 1 ? Math.max(winkT < 0.42 ? 1 - winkT / 0.42 : (winkT - 0.42) / 0.58, 0.04) : 1;
 
-    // Where the head is drawn this frame, for effects that hug it (the emphasis rings).
-    this.headX = (this.x.x + add.x) * keep + mm.x;
-    this.headY = (this.y.x + add.y + hop) * keep - center.lift * dots + 58 * bang + mm.y;
-    this.headScale = this.scale.x * keep + headSize / CENTER * pop * morphed;
-
     this.render({
-      x: this.headX,
-      y: this.headY,
+      x: (this.x.x + add.x) * keep + mm.x,
+      y: (this.y.x + add.y + hop) * keep - center.lift * dots + 58 * bang + mm.y,
       rot: (this.rot.x + add.rot + add.bodyRot) * keep + mm.rot,
-      scale: this.headScale,
+      scale: this.scale.x * keep + headSize / CENTER * pop * morphed,
       opacity: (1 - (1 - center.tone) * dots) * mm.opacity,
       turn: turn + this.morphTurn.x + this.lookTurn.x,
       gazeX: this.gazeX.x + add.gazeX + driftX,
@@ -1099,27 +1089,6 @@
     var head = this.morph
       ? MORPH_SIZE[this.morph] * mix + MORPH_SIZE[this.prevMorph || this.morph] * (1 - mix)
       : 19;
-
-    // Emphasis: a soft flash behind the head, then two rings spreading from its edge.
-    var since = now - (this.emphasisAt || -Infinity);
-    if (since < EMPHASIS_MS + EMPHASIS_GAP_MS) {
-      var edge = HEAD_RADIUS * (this.headScale || 1);
-      var cx = CENTER + (this.headX || 0);
-      var cy = CENTER + (this.headY || 0);
-      var flash = clamp(since / EMPHASIS_MS, 0, 1);
-      parts.push({ kind: 'dot', x: cx, y: cy, r: edge * (1.04 + 0.1 * easeOutCubic(flash)), opacity: 0.45 * (1 - flash), color: EMPHASIS_COLOR });
-      for (k = 0; k < 2; k += 1) {
-        s = clamp((since - k * EMPHASIS_GAP_MS) / EMPHASIS_MS, 0, 1);
-        if (s <= 0 || s >= 1) continue;
-        parts.push({
-          kind: 'ring', x: cx, y: cy,
-          r: edge * (1.03 + 0.42 * easeOutCubic(s)),
-          width: 7 * (1 - s) + 1,
-          opacity: (k === 0 ? 0.95 : 0.6) * (1 - s),
-          color: EMPHASIS_COLOR,
-        });
-      }
-    }
 
     // Orbit: five dots on a flat ellipse, biggest at the top.
     w = this.morphWeight('orbit');
