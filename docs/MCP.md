@@ -97,30 +97,36 @@ Grok のカスタムコネクタは、**インターネットから届く URL** 
    powershell -ExecutionPolicy Bypass -File scripts\set-mcp-token.ps1
    ```
 
-2. **トンネルを立てる**。PC で [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) を使う例です。Streamable HTTP は Cloudflare のクイックトンネルで使えます。
+2. **トンネルを立てる**。おすすめは [ngrok](https://ngrok.com/) です（無料アカウントで固定の URL が 1 つもらえ、HTTPS の 443 番ポートだけでつながるので、制限の厳しいネットワークでも使えます）。
 
    ```powershell
-   # Echo Spot と同じ LAN にいる PC から
-   cloudflared tunnel --url http://<Echo Spot の IP>:8765
-   # または USB でつないだ PC から（adb の転送を使う）
+   winget install --id Ngrok.Ngrok -e
+   ngrok update                                  # winget の版は古いことがある
+   # authtoken は会話や共有画面に出さないよう、自分の PowerShell ウィンドウで設定する
+   ngrok config add-authtoken <ngrok の authtoken>
+   # USB でつないだ PC から（adb の転送を使う）
    adb forward tcp:8765 tcp:8765
-   cloudflared tunnel --url http://127.0.0.1:8765
+   ngrok http 8765 --url https://<あなたの固定ドメイン>.ngrok-free.dev
+   # Echo Spot と同じ LAN にいる PC からなら、転送なしで
+   ngrok http http://<Echo Spot の IP>:8765 --url https://<あなたの固定ドメイン>.ngrok-free.dev
    ```
 
-   `https://xxxx.trycloudflare.com` のような URL が表示されます。
+   固定ドメインは ngrok のダッシュボードの **Domains** にあります。
 
-3. **Grok に登録する**：[grok.com/connectors](https://grok.com/connectors) → **New Connector** → **Custom** で、次の URL を入れます。
+   [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) のクイックトンネル（`cloudflared tunnel --url http://127.0.0.1:8765`）も使えますが、外向きの 7844 番ポートを使うので、会社や学校などのネットワークではつながらないことがあります。また URL が毎回変わります。
+
+3. **Grok に登録する**：[grok.com/connectors](https://grok.com/connectors) → **New Connector** → **Custom** で、次の URL を入れます。認証方式を選ぶ欄があれば「なし」にします（トークンは URL に入っているため）。
 
    ```
-   https://xxxx.trycloudflare.com/mcp?key=<トークン>
+   https://<あなたの固定ドメイン>.ngrok-free.dev/mcp?key=<トークン>
    ```
 
    ヘッダーを設定できる画面なら、`Authorization: Bearer <トークン>` を使っても構いません。
 
 4. Grok との会話で「今の表情を curious にして」と頼んで、顔が変わるか確かめます。
 
-- 無料のクイックトンネルは、立て直すたびに URL が変わります。そのたびにコネクタを登録し直すか、名前付きトンネルで URL を固定してください。
-- トンネルを止めると、Grok からは届かなくなります（LAN 内からは引き続き使えます）。
+- ngrok の固定ドメインなら、トンネルを立て直しても URL は変わらず、登録し直す必要はありません。cloudflared のクイックトンネルは毎回 URL が変わるので、そのたびに登録し直します。
+- トンネルを止めると、Grok からは届かなくなります（LAN 内からは引き続き使えます）。PC の起動時に自動で立てたいときは、ngrok を Windows のサービスとして登録します（`ngrok service install`）。
 - トークンをやめるときは `scripts\set-mcp-token.ps1 -Remove`（LAN 内だけで使う場合）。
 
 ## セキュリティ
@@ -136,7 +142,7 @@ Grok のカスタムコネクタは、**インターネットから届く URL** 
 | 段階 | 内容 | 状態 |
 |---|---|---|
 | 1 | MCP サーバーと `set_avatar_state` | 完了 |
-| 2 | GrokBot へのサーバー登録 | 手順を用意（トンネルが必要） |
+| 2 | GrokBot へのサーバー登録 | 完了（2026-10-22、ngrok 経由で登録し、Grok から顔が変わることを確認） |
 | 3 | 動作確認と調整、GrokBot が自分から使うかの観察 | これから |
 | 4 | 状態のバリエーションを増やす | 使われ方を見てから |
 | 5 | 双方向化（タッチなどを GrokBot に伝える） | 検討 |
