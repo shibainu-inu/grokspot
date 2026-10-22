@@ -46,7 +46,7 @@ LineageOS を入れた Echo Spot の上で動き、xAI の Grok Voice API と音
   - ビルドのダウンロード：[amazon-oss/releases](https://github.com/amazon-oss/releases/releases/tag/lineage-18.1-rook-v0.3)
 - Windows PC（スクリプトは PowerShell 用。Android のビルド自体は macOS / Linux でも可能）
   - Android Studio（同梱の JDK と Android SDK を使用）
-  - Node.js（顔の描画ライブラリのビルド用）
+  - Node.js（顔の描画ライブラリを改造する場合のみ。ビルド済みのものを同梱しているので、普段は不要）
   - adb（Android SDK Platform-Tools）
 - **xAI の API キー**（Grok Voice の利用料金がかかります）
 

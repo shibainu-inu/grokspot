@@ -8,7 +8,7 @@ Echo Spot を GrokSpot 専用端末にするまでの手順です。コマンド
 
 - Echo Spot（第1世代）に LineageOS 18.1（Android 11）が入っていて、開発者オプションの「USB デバッグ」が有効になっていること
 - PC から `adb devices` で端末が見えること
-- Android Studio、Node.js、Git が入っていること
+- Android Studio と Git が入っていること（Node.js は顔の描画ライブラリを改造する場合のみ必要）
 
 PowerShell のセッションに環境変数がない場合は、ビルドの前に設定してください。
 
