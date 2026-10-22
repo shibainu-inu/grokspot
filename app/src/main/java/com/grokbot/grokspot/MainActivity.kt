@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.app.KeyguardManager
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -78,6 +79,9 @@ class MainActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         // 画面を消すとロック画面になるので、点けたときにその上へすぐ顔を出す（暗証番号なしの端末）。
         setShowWhenLocked(true)
+        // Grok Voice の返事は通話音量（USAGE_VOICE_COMMUNICATION）で鳴るので、音量ボタンもそちらへ向ける。
+        // 通話モードではないため、指定しないとメディア音量が動いてしまう。
+        volumeControlStream = AudioManager.STREAM_VOICE_CALL
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         // assets/ 以下を https://appassets.androidplatform.net/assets/ として配信する。
