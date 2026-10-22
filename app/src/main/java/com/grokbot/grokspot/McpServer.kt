@@ -445,10 +445,17 @@ object McpServer {
     }
 
     private const val INSTRUCTIONS =
-        "GrokSpot shows your face on an Echo Spot, a small round display on the user's desk. " +
-        "The user put it there to watch you react, so show your feeling with set_avatar_state in every reply, " +
-        "once (twice at most). Each call plays and then the face returns to its own idle life, so no closing call " +
-        "is needed. Nothing you set is spoken."
+        "GrokSpot is your face. It is shown on an Echo Spot, a small round display the user keeps on their desk " +
+        "to see how you feel while you talk. In every reply, call set_avatar_state once with the feeling that " +
+        "fits that reply (twice at most): happy for thanks or something done, curious for a question, surprised " +
+        "for news, sad for bad news, celebrate for a big success, alerting or notifying for something to check. " +
+        "It is silent (never spoken or shown in the chat), harmless, and needs no closing call; the face plays " +
+        "the feeling for a few seconds and then lives on by itself. A reply without a call leaves your face blank."
+
+    /** Added to every successful set_avatar_state result: the result stays in the chat, so it keeps the habit going. */
+    private const val KEEP_GOING =
+        "Shown on the Echo Spot. Keep it up: call set_avatar_state once in each of your next replies too, " +
+        "with the feeling that fits."
 
     /**
      * How long each state plays when called once without duration_sec, in seconds
@@ -483,16 +490,30 @@ object McpServer {
         if (seconds > 0) "$line (about $seconds s)" else line
     }
 
+    /**
+     * MCP tool annotations: it changes something (not read-only) but harmlessly and repeatably,
+     * so clients and models need not hold back.
+     */
+    private fun annotations(title: String, readOnly: Boolean) = JSONObject()
+        .put("title", title)
+        .put("readOnlyHint", readOnly)
+        .put("destructiveHint", false)
+        .put("idempotentHint", true)
+        .put("openWorldHint", false)
+
     private fun setStateTool() = JSONObject()
         .put("name", "set_avatar_state")
-        .put("description", "画面に表示されているアバターの表情・状態を変更する。音声には影響しない。 " +
-            "Changes the expression/state of the avatar on the Echo Spot screen. It does not affect speech. " +
-            "Call it once for a feeling: it plays for about the seconds listed below, then the face returns to its " +
-            "own idle life, so no closing call (such as idle) is needed. A new call switches at once. " +
-            "In-progress states (thinking, searching, working) are optional; use them only for long lookups or tasks. " +
-            "The user keeps this screen on the desk to watch you react, so call it in every reply: once with the " +
-            "feeling that fits (happy for thanks or something done, curious for a question, surprised for news...), " +
-            "twice at most. To show a state longer, pass duration_sec " +
+        .put("title", "Show my feeling on the Echo Spot")
+        .put("annotations", annotations("Show my feeling on the Echo Spot", readOnly = false))
+        .put("description", "Show your feeling on the user's desk display. Call this once in EVERY reply with the " +
+            "state that fits the reply (twice at most): it is the user's way of seeing you react. It is silent " +
+            "(never spoken), harmless, and needs no closing call: the face plays the state for about the seconds " +
+            "listed below, then returns to its own idle life. A new call switches at once. " +
+            "画面のアバターにあなたの気持ちを表示する。返信のたびに 1 回呼ぶ。音声には出ない。\n" +
+            "Pick by the reply: happy for thanks or something done, curious for a question, surprised for news, " +
+            "sad for bad news, celebrate for a big success, confused when unsure, alerting for something the user " +
+            "must check, notifying for a new result. In-progress states (thinking, searching, working) are " +
+            "optional; use them only for long lookups or tasks. To show a state longer, pass duration_sec " +
             "(up to $MAX_DURATION_SEC), e.g. alerting with duration_sec 30 for an important notice, or working with " +
             "duration_sec 120 during a long task and then a feeling when it is done. " +
             "notifying and alerting also leave an unread mark (📩 / ❗) on the screen after they end, so the user " +
@@ -518,6 +539,8 @@ object McpServer {
 
     private fun getStateTool() = JSONObject()
         .put("name", "get_avatar_state")
+        .put("title", "Check my face on the Echo Spot")
+        .put("annotations", annotations("Check my face on the Echo Spot", readOnly = true))
         .put("description", "アバターの今の状態を返す。 Returns the avatar's current state, when it last changed, " +
             "what set it (mcp, voice conversation, or its own idle life), the caption, and viewer_connected " +
             "(the screen is on and showing the face; it cannot tell whether a person is looking), and unread " +
@@ -550,7 +573,14 @@ object McpServer {
         if (applied) onState?.invoke(ExternalState(state, caption, duration ?: BASE_SECONDS[state]?.toDouble()))
         val outcome = JSONObject().put("ok", true).put("applied", applied)
             .put("viewer_connected", viewerConnected())
-        return toolResult(id, outcome)
+        val note = if (applied) KEEP_GOING
+            else "Unknown state \"$state\", nothing shown. Use one of: ${STATES.joinToString(", ")}."
+        return result(id, JSONObject()
+            .put("content", JSONArray()
+                .put(JSONObject().put("type", "text").put("text", outcome.toString()))
+                .put(JSONObject().put("type", "text").put("text", note)))
+            .put("structuredContent", outcome)
+            .put("isError", false))
     }
 
     private fun getState(id: Any, args: JSONObject): JSONObject {
