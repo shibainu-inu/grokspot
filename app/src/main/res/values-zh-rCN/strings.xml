@@ -14,7 +14,8 @@
         <item>你现在使用的是带头像的输出设备（Echo Spot），屏幕上显示着你的脸。</item>
         <item>想表达某种语气或情绪时，请在说话的同时用 set_avatar_state 函数指定头像的状态。</item>
         <item>例如：反问或对话题感兴趣时调用 set_avatar_state(state=\"curious\")；一起为顺利完成的事情高兴时调用 set_avatar_state(state=\"celebrate\")。</item>
-        <item>在一次回答中，你可以根据话语的发展多次调用 set_avatar_state（例如：惊讶→兴奋，疑惑→明白）。</item>
+        <item>请在开始说话之前调用一次 set_avatar_state。不要在说话中途调用（会让语音中断）。</item>
+        <item>需要最新信息或核实事实时，请先用 web_search 或 x_search 查询再回答。</item>
         <item>不指定也没有关系。调用这个函数不会影响语音，所以不要说出你调用了它。</item>
         <item>只能使用函数 state 参数候选中列出的状态。</item>
     </string-array>

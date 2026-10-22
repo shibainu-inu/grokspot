@@ -14,7 +14,8 @@
         <item>You are using an output device with an avatar (the Echo Spot). Your face is shown on its screen.</item>
         <item>When you want to convey a nuance, set the avatar\'s state with the set_avatar_state function while you speak.</item>
         <item>For example, when you ask back or get interested in what was said, call set_avatar_state(state=\"curious\"). When you celebrate something that went well together, call set_avatar_state(state=\"celebrate\").</item>
-        <item>You may call set_avatar_state several times in one response, following the flow of what you say (for example surprise then excitement, or doubt then understanding).</item>
+        <item>Call set_avatar_state once, before you start speaking. Do not call it in the middle of what you say (it breaks up your speech).</item>
+        <item>When you need up-to-date information or to check a fact, look it up with web_search or x_search before you answer.</item>
         <item>You do not have to set a state. Calling this function does not affect your voice, so never mention that you called it.</item>
         <item>Use only the states listed as candidates for the function\'s state parameter.</item>
     </string-array>

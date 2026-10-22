@@ -74,7 +74,8 @@ Echo Spot には `AcousticEchoCanceler` がありません。Grok の声をマ�
 - 選べる状態は関数の定義で列挙しています（`happy` `excited` `curious` `confused` `surprised` `sad` `angry` `thinking` `working` `searching` `celebrate` `bored` `alerting` `notifying`）。ページ側でも名前を確かめ、知らない名前は無視します。
 - **優先順位**：Grok が選んだ表情は、その応答の `thinking`／`working`／`searching` より優先し、最低 2 秒は表示します（「うん」のような短い返事では 0.8 秒）。ユーザーが話し始めたら `listening` が勝ちます。
 - **余韻**：会話が応答の直後に終わったら、その応答で Grok が選んだ気持ちを 4 秒残してから待機中の暮らしに戻します。モデルには頼まず端末側で決めます（Grok との相談で決めた方針）。
-- 応答が `set_avatar_state` だけで音声がなかった場合は、関数の結果を返してから `response.create` を送り、返事を続けさせます。
+- 応答に `set_avatar_state` があれば、関数の結果を返してから必ず `response.create` を送り、返事を続けさせます。Grok は話の途中でも関数を呼んだところで応答を区切るので、送らないと答えが数語で切れていました。表情の指定は「話し始める前に 1 回だけ」と指示しています（途中で呼ばれると話が細切れになるため）。
+- 検索：組み込みの `web_search`・`x_search` を有効にしています。xAI 側で実行されるので結果を返す必要はなく、呼ばれたら顔を `searching` にします。指示文の最後に今の日時とタイムゾーンを付けて、古い日付で検索しないようにしています。
 
 ### 入力待ちの表示
 

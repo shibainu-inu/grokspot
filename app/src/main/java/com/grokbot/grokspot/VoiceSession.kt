@@ -126,7 +126,8 @@ class VoiceSession(private val context: Context, private val listener: Listener)
         .put("session", JSONObject()
             .put("voice", VOICE)
             // Instructions in the device language (res/values*/strings.xml), so Grok speaks it too.
-            .put("instructions", context.resources.getStringArray(R.array.voice_instructions).joinToString("\n"))
+            .put("instructions", context.resources.getStringArray(R.array.voice_instructions).joinToString("\n") +
+                "\n" + nowLine())
             .put("turn_detection", JSONObject().put("type", "server_vad"))
             .put("audio", JSONObject()
                 .put("input", JSONObject().put("format", pcmFormat()))
@@ -140,9 +141,21 @@ class VoiceSession(private val context: Context, private val listener: Listener)
                     .put("properties", JSONObject().put("state", JSONObject()
                         .put("type", "string")
                         .put("enum", JSONArray(AVATAR_STATES))))
-                    .put("required", JSONArray().put("state"))))))
+                    .put("required", JSONArray().put("state"))))
+                // Built-in tools: run on xAI's side within the reply, nothing to send back.
+                .put(JSONObject().put("type", "web_search"))
+                .put(JSONObject().put("type", "x_search"))))
 
     private fun pcmFormat() = JSONObject().put("type", "audio/pcm").put("rate", SAMPLE_RATE)
+
+    /**
+     * Today's date, time and time zone. Without it Grok guessed an old date and
+     * searched for stale results (e.g. "today's weather" in a month long past).
+     */
+    private fun nowLine(): String {
+        val format = java.text.SimpleDateFormat("yyyy-MM-dd (EEE) HH:mm", java.util.Locale.ENGLISH)
+        return "Current date and time: ${format.format(java.util.Date())}, time zone ${java.util.TimeZone.getDefault().id}."
+    }
 
     private inner class Events : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -208,6 +221,12 @@ class VoiceSession(private val context: Context, private val listener: Listener)
     private fun onFunctionCall(event: JSONObject) {
         val name = event.optString("name")
         val callId = event.optString("call_id")
+        if (name in BUILT_IN_TOOLS) {
+            // xAI runs the search itself and carries on with the reply; just show it on the face.
+            Log.i(TAG, "Grok uses $name")
+            emit("tool_call", name)
+            return
+        }
         if (name != AVATAR_FUNCTION) {
             Log.w(TAG, "Unknown function $name")
             emit("tool_call", name)
@@ -225,8 +244,9 @@ class VoiceSession(private val context: Context, private val listener: Listener)
     private fun onResponseDone() {
         touch()
         avatarCalls.forEach { sendFunctionOutput(it, JSONObject().put("ok", true)) }
-        // A reply that was only a set_avatar_state call still owes the user an answer.
-        val continuing = avatarCalls.isNotEmpty() && !responseHasAudio
+        // Grok ends a response at a set_avatar_state call and waits for its result before going on,
+        // even in the middle of an answer; without this the answer stopped after a few words.
+        val continuing = avatarCalls.isNotEmpty()
         avatarCalls.clear()
         if (continuing) send(JSONObject().put("type", "response.create"))
         val detail = if (continuing) "continuing" else null
@@ -409,6 +429,7 @@ class VoiceSession(private val context: Context, private val listener: Listener)
         const val LEVEL_SLICE_BYTES = SAMPLE_RATE / 30 * 2
         const val IDLE_TIMEOUT_MS = 60_000L
         const val AVATAR_FUNCTION = "set_avatar_state"
+        val BUILT_IN_TOOLS = setOf("web_search", "x_search")
 
         // grokbot-web の状態名のうち、ニュアンスとして AI が選べるもの。
         val AVATAR_STATES = listOf(
