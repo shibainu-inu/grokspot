@@ -59,6 +59,24 @@ powershell -ExecutionPolicy Bypass -File scripts\set-api-key.ps1
 # 3. ボタン用のサービスを有効にし、ホームアプリにする（SETUP.md の手順 5〜7）
 ```
 
+### 自分の GrokBot から顔を動かす（任意）
+
+スマホや PC の Grok（grok.com）から顔を動かすには、Echo Spot の MCP サーバーを **自分のトンネル** で公開し、Grok のカスタムコネクタに登録します。共有の中継サーバーは使いません。手順の詳細は [docs/MCP.md](docs/MCP.md) にあります。
+
+```powershell
+# 1. 認証トークンを作って端末に保存する（公開する前に必須）
+powershell -ExecutionPolicy Bypass -File scripts\set-mcp-token.ps1
+
+# 2. 自分の ngrok アカウントで、固定ドメインのトンネルを立てる（USB でつないだ PC から）
+adb forward tcp:8765 tcp:8765
+ngrok http 8765 --url https://<自分の固定ドメイン>.ngrok-free.dev
+
+# 3. grok.com/connectors → New Connector → Custom に、次の URL を登録する
+#    https://<自分の固定ドメイン>.ngrok-free.dev/mcp?key=<1 で表示されたトークン>
+```
+
+登録できたら、Grok に「Echo Spot の顔を curious にして」と頼むと、画面の顔が変わります。
+
 ## 構成
 
 ```
