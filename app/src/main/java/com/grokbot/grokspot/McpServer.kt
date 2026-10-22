@@ -471,7 +471,8 @@ object McpServer {
                 .put("caption", JSONObject()
                     .put("type", "string")
                     .put("description", "Optional: one emoji or a short word shown under the face, up to $CAPTION_MAX characters " +
-                        "(e.g. \"🎉\", \"検索中\", \"要確認\"). Not a sentence. Omit it for a default (an emoji " +
+                        "(e.g. \"🎉\", \"❤️\", \"検索中\", \"要確認\"). Not a sentence. Prefer symbols to face emoji, " +
+                        "which are hard to see on the small screen. Omit it for a default (an emoji " +
                         "for feelings, a word for actions); pass \"\" for none. It disappears when the state does."))
                 .put("duration_sec", JSONObject()
                     .put("type", "number")

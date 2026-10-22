@@ -23,10 +23,11 @@
   // How often to check that the captioned state is still the one showing.
   var CAPTION_CHECK_MS = 400;
 
-  // Default captions. Feelings get an emoji; actions a phrase from i18n.js (caption.<state>).
+  // Default captions. Feelings get an emoji; actions a word from i18n.js (caption.<state>).
+  // No face emoji: they are hard to make out at this size on the Echo Spot.
   var EMOJI = {
-    happy: '😊', excited: '🤩', celebrate: '🎉', curious: '👀', confused: '❓',
-    surprised: '😲', sad: '😢', angry: '💢', bored: '💤',
+    happy: '❤️', excited: '✨', celebrate: '🎉', curious: '👀', confused: '❓',
+    surprised: '⁉️', sad: '💧', angry: '💢', bored: '💤',
   };
   var PHRASE = { thinking: true, working: true, searching: true, alerting: true, notifying: true, listening: true };
 
