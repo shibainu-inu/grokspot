@@ -52,8 +52,9 @@ class McpAuth(private val filesDir: File, private val pairing: (PairingEvent) ->
 
     // -------------------------------------------------------------- metadata
 
-    fun resourceMetadata(base: String) = JSONObject()
-        .put("resource", "$base/mcp")
+    /** `path` is the MCP endpoint the client uses (/mcp, or a variant such as /mcp/v3). */
+    fun resourceMetadata(base: String, path: String = "/mcp") = JSONObject()
+        .put("resource", "$base$path")
         .put("authorization_servers", JSONArray().put(base))
         .put("bearer_methods_supported", JSONArray().put("header"))
         .put("scopes_supported", JSONArray().put(SCOPE))

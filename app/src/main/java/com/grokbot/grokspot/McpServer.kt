@@ -214,16 +214,32 @@ object McpServer {
         return "$proto://$host"
     }
 
+    /**
+     * MCP endpoint paths: /mcp, or /mcp/<anything> (e.g. /mcp/v3). A new path
+     * makes a client that caches tools per URL (Grok's connectors) fetch them
+     * again; every path serves the same server.
+     */
+    private fun isMcpPath(path: String) = path == "/mcp" || MCP_VARIANT.matches(path)
+    private val MCP_VARIANT = Regex("/mcp/[A-Za-z0-9_-]{1,32}")
+
+    private const val RESOURCE_METADATA = "/.well-known/oauth-protected-resource"
+
     private fun handle(request: Request, out: OutputStream) {
         val base = baseUrl(request)
+        if (isMcpPath(request.path)) { handleMcp(request, out, base); return }
+        // RFC 9728: the metadata for /mcp/v3 lives at /.well-known/oauth-protected-resource/mcp/v3.
+        if (request.method == "GET" && request.path.startsWith(RESOURCE_METADATA)) {
+            val resource = request.path.removePrefix(RESOURCE_METADATA).ifEmpty { "/mcp" }
+            if (isMcpPath(resource)) {
+                respond(out, 200, JSON_TYPE, auth.resourceMetadata(base, resource).toString(), CORS)
+                return
+            }
+        }
         when (request.path) {
             "/" -> if (request.method == "GET") {
                 respond(out, 200, "text/plain; charset=utf-8", "GrokSpot MCP server: POST /mcp\n")
                 return
             }
-            "/mcp" -> { handleMcp(request, out, base); return }
-            "/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp" ->
-                if (request.method == "GET") { respond(out, 200, JSON_TYPE, auth.resourceMetadata(base).toString(), CORS); return }
             "/.well-known/oauth-authorization-server", "/.well-known/openid-configuration" ->
                 if (request.method == "GET") { respond(out, 200, JSON_TYPE, auth.serverMetadata(base).toString(), CORS); return }
             "/register" -> if (request.method == "POST") {
@@ -257,7 +273,7 @@ object McpServer {
             (bearer != null && auth.isValidAccessToken(bearer))
         if (!allowed) {
             // Points OAuth clients at the metadata (RFC 9728), so a URL alone is enough to connect.
-            val challenge = "Bearer resource_metadata=\"$base/.well-known/oauth-protected-resource/mcp\"" +
+            val challenge = "Bearer resource_metadata=\"$base$RESOURCE_METADATA${request.path}\"" +
                 (if (bearer != null) ", error=\"invalid_token\"" else "") + ", scope=\"${McpAuth.SCOPE}\""
             respond(out, 401, "text/plain", "unauthorized", mapOf("WWW-Authenticate" to challenge))
             return
@@ -408,7 +424,7 @@ object McpServer {
         val id = message.opt("id")
         val method = message.optString("method")
         if (id == null || id == JSONObject.NULL) {
-            Log.d(TAG, "Notification $method")
+            Log.i(TAG, "Notification $method")
             return null
         }
         val params = message.optJSONObject("params") ?: JSONObject()
