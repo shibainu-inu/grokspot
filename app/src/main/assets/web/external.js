@@ -5,13 +5,16 @@
 // - During a Grok Voice conversation the state goes through voice.js
 //   (external_state), so its priorities apply: the user speaking wins, and
 //   during a reply it holds like Grok Voice's own set_avatar_state.
-// - Otherwise it takes the face over from the idle life for HOLD_MS, then the
-//   idle life comes back. "idle" hands the face back at once. A new call
-//   restarts the hold, so an agent can keep a state up by sending it again.
+// - Otherwise it takes the face over from the idle life until the next call or
+//   HOLD_MS, then the idle life comes back. "idle" hands the face back at once.
+//   A new call restarts the hold, so an agent can keep a state up by sending it again.
+// - Every change that is shown gets one emphasis (motion.emphasize: a small pop,
+//   a blink and bright rings), so it is clear the agent chose this face.
 (function () {
   'use strict';
 
-  var HOLD_MS = 15000;
+  // Long enough not to be missed (追加仕様：状態変更時の強調＋キープ).
+  var HOLD_MS = 30000;
   var hold = null;
 
   function talking() {
@@ -29,8 +32,11 @@
     hold = null;
     if (talking()) {
       window.grokspot.voice.event('external_state', name);
+      // Skipped while the user is speaking: then there is nothing to emphasize.
+      if (window.getBotState() === name) window.motion.emphasize();
       return true;
     }
+    window.motion.emphasize();
     if (name === 'idle') {
       window.grokspot.act('idle');
       return true;

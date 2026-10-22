@@ -48,7 +48,7 @@
 
   /**
    * The morph parts to draw behind the head this frame (face units):
-   *   { kind: 'dot', x, y, r, opacity }
+   *   { kind: 'dot', x, y, r, opacity, color? }
    *   { kind: 'ring', x, y, r, width, opacity, from?, to? }  (from/to: arc in radians, 0 = 12 o'clock, clockwise)
    *   { kind: 'pill', x, y, w, h, rot (deg), opacity }
    *   { kind: 'line', points: [[x, y], ...], width, opacity }
@@ -258,8 +258,8 @@
     if (part.opacity <= 0.004) return;
     var ctx = this.backCtx;
     ctx.globalAlpha = Math.min(1, part.opacity);
-    ctx.fillStyle = PART_COLOR;
-    ctx.strokeStyle = PART_COLOR;
+    ctx.fillStyle = part.color || PART_COLOR;
+    ctx.strokeStyle = part.color || PART_COLOR;
     ctx.beginPath();
     switch (part.kind) {
       case 'dot':
