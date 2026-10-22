@@ -446,8 +446,9 @@ object McpServer {
 
     private const val INSTRUCTIONS =
         "GrokSpot shows your face on an Echo Spot, a small round display on the user's desk. " +
-        "Call set_avatar_state once when you want to show a feeling or get attention; it plays and then the face " +
-        "returns to its own idle life, so no closing call is needed. Nothing you set is spoken. Calls are optional."
+        "The user put it there to watch you react, so show your feeling with set_avatar_state in every reply, " +
+        "once (twice at most). Each call plays and then the face returns to its own idle life, so no closing call " +
+        "is needed. Nothing you set is spoken."
 
     /**
      * How long each state plays when called once without duration_sec, in seconds
@@ -489,7 +490,9 @@ object McpServer {
             "Call it once for a feeling: it plays for about the seconds listed below, then the face returns to its " +
             "own idle life, so no closing call (such as idle) is needed. A new call switches at once. " +
             "In-progress states (thinking, searching, working) are optional; use them only for long lookups or tasks. " +
-            "As a guide, call it at most once or twice per reply. To show a state longer, pass duration_sec " +
+            "The user keeps this screen on the desk to watch you react, so call it in every reply: once with the " +
+            "feeling that fits (happy for thanks or something done, curious for a question, surprised for news...), " +
+            "twice at most. To show a state longer, pass duration_sec " +
             "(up to $MAX_DURATION_SEC), e.g. alerting with duration_sec 30 for an important notice, or working with " +
             "duration_sec 120 during a long task and then a feeling when it is done. " +
             "notifying and alerting also leave an unread mark (📩 / ❗) on the screen after they end, so the user " +

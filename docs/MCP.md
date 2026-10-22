@@ -21,7 +21,7 @@
 
 追加の引数はすべて省略できます。`set_avatar_state(state)` だけの使い方はそのまま使えます。
 
-**1 回呼べば完結します。** 呼ぶと、その状態を基本の秒数（下の表）だけ表示して、自動で待機中の暮らしに戻ります。締めに `idle` などを送る必要はありません。もっと長く見せたいときだけ `duration_sec` を付けます（例：大事なお知らせは `alerting` を `duration_sec: 30` で。長い作業中は `working` を `duration_sec: 120` で出し、終わったら気持ちを送る）。呼ぶ目安は、1 回の返信につき 1〜2 回までです。途中経過（`thinking`・`searching`・`working`）は任意で、長い調べものや作業のときだけ使います。
+**1 回呼べば完結します。** 呼ぶと、その状態を基本の秒数（下の表）だけ表示して、自動で待機中の暮らしに戻ります。締めに `idle` などを送る必要はありません。もっと長く見せたいときだけ `duration_sec` を付けます（例：大事なお知らせは `alerting` を `duration_sec: 30` で。長い作業中は `working` を `duration_sec: 120` で出し、終わったら気持ちを送る）。呼ぶ目安は、毎回の返信で 1 回（多くても 2 回）です。途中経過（`thinking`・`searching`・`working`）は任意で、長い調べものや作業のときだけ使います。
 
 #### `set_avatar_state`
 
@@ -188,6 +188,27 @@ Grok のカスタムコネクタは、**インターネットから届く URL** 
 4. Grok との会話で「今の表情を curious にして」と頼んで、顔が変わるか確かめます。
 
 許可は 24 時間ごとに自動で更新され（更新用の鍵は 180 日有効）、つなぎ直す必要はありません。
+
+### Grok に入れておく指示（おすすめ）
+
+ツールの説明文でも「毎回の返信で 1 回使う」よう頼んでいますが、それだけでは LLM はあまりツールを呼んでくれません（実際に使って分かったこと）。顔がよく動くようにするには、Grok の設定でいつも読ませる指示（カスタム指示など）に、次の文を入れてください。作者の環境でも、同じ趣旨の指示を入れて動かしています。
+
+```
+私のデスクには Echo Spot があり、GrokSpot というツールであなたの顔を表示しています。
+返信するたびに、その返信の気持ちに合わせて GrokSpot の set_avatar_state を 1 回呼んでください（多くても 2 回）。
+例：お礼や完了は happy、質問は curious、驚く話は surprised、大きな成功は celebrate、注意してほしいことは alerting、お知らせは notifying。
+締めの呼び出しは要りません。呼んだことは返信の中で触れなくて構いません。
+```
+
+英語の場合：
+
+```
+There is an Echo Spot on my desk that shows your face through the GrokSpot tool.
+In every reply, call GrokSpot's set_avatar_state once with the feeling that fits that reply (twice at most).
+For example: happy for thanks or something done, curious for a question, surprised for news, celebrate for a big
+success, alerting for something I should check, notifying for a new result.
+No closing call is needed, and you do not have to mention the call in your reply.
+```
 
 ### OAuth に対応していないクライアントの場合
 
