@@ -446,18 +446,27 @@ object McpServer {
 
     private const val INSTRUCTIONS =
         "GrokSpot shows your face on an Echo Spot, a small round display on the user's desk. " +
-        "Use set_avatar_state to show what you are doing or feeling: thinking while you work out an answer, " +
-        "searching or working while you use tools, then a feeling (happy, surprised, ...) when you reply. " +
-        "Nothing you set is spoken. Calls are optional; the face looks after itself when you do not call."
+        "Call set_avatar_state once when you want to show a feeling or get attention; it plays and then the face " +
+        "returns to its own idle life, so no closing call is needed. Nothing you set is spoken. Calls are optional."
+
+    /**
+     * How long each state plays when called once without duration_sec, in seconds
+     * (agreed with GrokBot, 2026-10-22). idle hands the face back at once.
+     */
+    private val BASE_SECONDS = mapOf(
+        "idle" to 0, "surprised" to 3, "happy" to 4, "angry" to 4, "curious" to 5, "confused" to 5,
+        "excited" to 5, "notifying" to 5, "listening" to 5, "sad" to 6, "working" to 7, "thinking" to 7,
+        "searching" to 7, "celebrate" to 7, "alerting" to 8, "bored" to 10,
+    )
 
     /** One line per state, so the model can tell close states apart (shown in the tool description). */
     private val STATE_GUIDE = listOf(
-        "idle: calm, nothing going on (hands the face back to its own idle life)",
+        "idle: calm, nothing going on (hands the face back to its own idle life at once)",
         "listening: paying attention to the user",
-        "thinking: working out an answer (the head becomes typing dots)",
-        "working: busy with a task or a tool",
-        "searching: looking something up",
-        "happy: pleased, gentle joy",
+        "thinking: working out an answer (the head becomes typing dots); optional",
+        "working: busy with a task or a tool; optional",
+        "searching: looking something up; optional",
+        "happy: pleased, gentle joy, thanks, something done",
         "excited: bouncy, eager anticipation",
         "celebrate: a big success worth a party (big spin and rainbow trails)",
         "curious: interested, wants to know more",
@@ -468,16 +477,22 @@ object McpServer {
         "bored: waiting with nothing to do",
         "alerting: something needs the user's attention or went wrong (a \"!\")",
         "notifying: a new result or message is ready (calmer than alerting)",
-    )
+    ).map { line ->
+        val seconds = BASE_SECONDS.getValue(line.substringBefore(':'))
+        if (seconds > 0) "$line (about $seconds s)" else line
+    }
 
     private fun setStateTool() = JSONObject()
         .put("name", "set_avatar_state")
         .put("description", "画面に表示されているアバターの表情・状態を変更する。音声には影響しない。 " +
             "Changes the expression/state of the avatar on the Echo Spot screen. It does not affect speech. " +
-            "Typical flow: thinking while composing, searching/working while using tools, then a feeling such as " +
-            "happy when replying; when you finish, send a feeling or idle. The state stays until the next call, " +
-            "duration_sec, or by default 7 seconds (thinking/searching/working) or 15 seconds (others), then the face " +
-            "returns to its idle life. States:\n" + STATE_GUIDE.joinToString("\n"))
+            "Call it once for a feeling: it plays for about the seconds listed below, then the face returns to its " +
+            "own idle life, so no closing call (such as idle) is needed. A new call switches at once. " +
+            "In-progress states (thinking, searching, working) are optional; use them only for long lookups or tasks. " +
+            "As a guide, call it at most once or twice per reply. To show a state longer, pass duration_sec " +
+            "(up to $MAX_DURATION_SEC), e.g. alerting with duration_sec 30 for an important notice, or working with " +
+            "duration_sec 120 during a long task and then a feeling when it is done. States:\n" +
+            STATE_GUIDE.joinToString("\n"))
         .put("inputSchema", JSONObject()
             .put("type", "object")
             .put("properties", JSONObject()
@@ -493,7 +508,7 @@ object McpServer {
                 .put("duration_sec", JSONObject()
                     .put("type", "number")
                     .put("minimum", 1).put("maximum", MAX_DURATION_SEC)
-                    .put("description", "Optional: go back to idle after this many seconds (default 7 for thinking/searching/working, 15 otherwise).")))
+                    .put("description", "Optional: show the state this many seconds instead of its usual time, then go back to idle.")))
             .put("required", JSONArray().put("state")))
 
     private fun getStateTool() = JSONObject()
@@ -526,7 +541,7 @@ object McpServer {
         val duration = if (args.has("duration_sec")) args.optDouble("duration_sec").takeIf { !it.isNaN() }
             ?.coerceIn(1.0, MAX_DURATION_SEC.toDouble()) else null
         Log.i(TAG, "set_avatar_state($state)${if (applied) "" else " ignored"}")
-        if (applied) onState?.invoke(ExternalState(state, caption, duration))
+        if (applied) onState?.invoke(ExternalState(state, caption, duration ?: BASE_SECONDS[state]?.toDouble()))
         val outcome = JSONObject().put("ok", true).put("applied", applied)
             .put("viewer_connected", viewerConnected())
         return toolResult(id, outcome)

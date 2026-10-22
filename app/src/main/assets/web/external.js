@@ -6,8 +6,8 @@
 //   (external_state), so its priorities apply: the user speaking wins, and
 //   during a reply it holds like Grok Voice's own set_avatar_state.
 // - Otherwise it takes the face over from the idle life until the next call or
-//   the hold (duration_sec, or by default STEP_HOLD_MS for in-progress states and
-//   HOLD_MS for the rest), then the idle life comes back.
+//   the hold (duration_sec, or the state's own time from McpServer.BASE_SECONDS),
+//   then the idle life comes back. One call is enough; no closing call is needed.
 //   "idle" hands the face back at once. A new call restarts the hold.
 // - Every change that is shown gets one emphasis, so it is clear the agent chose
 //   this face: the head pops and blinks (motion.emphasize) and the screen edge
@@ -18,11 +18,8 @@
 (function () {
   'use strict';
 
-  // Long enough not to be missed (追加仕様：状態変更時の強調＋キープ).
-  // In-progress states go stale fast (the reply is usually done within seconds), feelings can linger.
-  var STEP_HOLD_MS = 7000;
-  var HOLD_MS = 15000;
-  var STEPS = { thinking: true, searching: true, working: true };
+  // Used only if the app sends no time (McpServer always sends the state's own time).
+  var HOLD_MS = 5000;
   var MAX_HOLD_MS = 600000;
   // How often to check that the captioned state is still the one showing.
   var CAPTION_CHECK_MS = 400;
@@ -103,7 +100,7 @@
     clearTimeout(hold);
     hold = null;
     var text = caption === null || caption === undefined ? defaultCaption(name) : caption;
-    var ms = Math.min(holdMs || (STEPS[name] ? STEP_HOLD_MS : HOLD_MS), MAX_HOLD_MS);
+    var ms = Math.min(holdMs || HOLD_MS, MAX_HOLD_MS);
 
     if (talking()) {
       window.grokspot.voice.event('external_state', name);
