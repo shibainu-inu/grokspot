@@ -109,6 +109,30 @@
   /* 待機の目印と重ならないよう、ツアーの名札は隠す。 */
   body[data-mic] #label { display: none; }
   /*
+   * MCP の一言（external.js）。顔の上に吹き出しで出し、状態が変わると消える。
+   */
+  #caption {
+    position: fixed;
+    left: 50%;
+    /* 丸い画面の上端で切れないよう、横幅が取れる高さに置く。 */
+    top: 44px;
+    max-width: 260px;
+    padding: 6px 16px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.94);
+    color: #1c1c1c;
+    font: 700 19px/1.3 system-ui, sans-serif;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transform: translate(-50%, -6px) scale(0.85);
+    opacity: 0;
+    transition: opacity 0.25s, transform 0.25s;
+    pointer-events: none;
+  }
+  #caption.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  #caption.emoji { background: transparent; font-size: 40px; padding: 0; }
+  /*
    * OAuth のペアリングコード（pairing.js）。顔を暗くして、中央に 6 桁を大きく出す。
    */
   #pairing {
@@ -199,6 +223,7 @@
 <div id="label"></div>
 <div id="mic-ring"></div>
 <div id="mic-hint"></div>
+<div id="caption" aria-live="polite"></div>
 <div id="pairing" aria-live="polite">
   <div class="pair-title"></div>
   <div class="pair-client"></div>

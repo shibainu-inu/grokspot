@@ -16,6 +16,12 @@
       'pair.title': 'Connection request',
       'pair.hint': 'Enter this code on the approval page',
       'pair.done': 'Connected',
+      'caption.thinking': 'Thinking…',
+      'caption.working': 'Working on it…',
+      'caption.searching': 'Looking it up…',
+      'caption.alerting': 'Needs a look!',
+      'caption.notifying': 'Something new',
+      'caption.listening': "I'm listening",
     },
     ja: {
       'mic.waiting': '話しかけてください',
@@ -23,6 +29,12 @@
       'pair.title': '接続の確認',
       'pair.hint': '許可画面にこのコードを入力してください',
       'pair.done': '接続しました',
+      'caption.thinking': '考え中…',
+      'caption.working': '作業中…',
+      'caption.searching': '調べ中…',
+      'caption.alerting': '要確認！',
+      'caption.notifying': 'お知らせ',
+      'caption.listening': '聞いてるよ',
     },
     zh: {
       'mic.waiting': '请跟我说话',
@@ -30,6 +42,12 @@
       'pair.title': '连接确认',
       'pair.hint': '请在授权页面输入此代码',
       'pair.done': '已连接',
+      'caption.thinking': '思考中…',
+      'caption.working': '处理中…',
+      'caption.searching': '查找中…',
+      'caption.alerting': '请确认！',
+      'caption.notifying': '有新消息',
+      'caption.listening': '我在听',
     },
   };
   var HTML_LANG = { en: 'en', ja: 'ja', zh: 'zh-Hans' };

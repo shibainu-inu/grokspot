@@ -27,7 +27,7 @@ LineageOS を入れた Echo Spot の上で動き、xAI の Grok Voice API と音
 | 入力待ちの表示 | 話しかけてよいときは画面の縁が青く光り、「話しかけてください」と出る |
 | 待機中の暮らし | 休む・見回す・考えごと・鼻歌・遊ぶ・落書き・うたた寝・睡眠を、「元気」の値に合わせて自然につなぐ。夜は朝まで眠る |
 | タッチ | 目と頭が指を追う。頭のてっぺんを撫でる・目をつつく・体をつつく・何もない所を触る・連打で反応が変わる |
-| GrokBot から操作（MCP） | 内蔵の MCP サーバー（ポート 8765）のツール `set_avatar_state` で、スマホや PC の GrokBot が顔を動かせる。詳しくは [docs/MCP.md](docs/MCP.md) |
+| GrokBot から操作（MCP） | 内蔵の MCP サーバー（ポート 8765）のツール `set_avatar_state`（一言の吹き出し付き）と `get_avatar_state` で、スマホや PC の GrokBot が顔を動かせる。詳しくは [docs/MCP.md](docs/MCP.md) |
 | 変形とエフェクト | 考え中の「・・・」、警告の「！」、レーダー、進捗リング、ペンなど 14 種の変形と、紙吹雪・虹色の軌跡 |
 | 専用端末として | ホームアプリとして起動。暗い部屋では画面が消え、明るくなるとつく。ボタン長押しで電源メニュー |
 
@@ -82,7 +82,7 @@ ngrok http 8765 --url https://<自分の固定ドメイン>.ngrok-free.dev
 app/src/main/java/com/grokbot/grokspot/
   MainActivity.kt        全画面の WebView。ボタンで会話の開始・終了、5 秒長押しで設定を開く抜け道
   VoiceSession.kt        Grok Voice（wss://api.x.ai/v1/realtime）との会話。マイク送信・音声再生・イベント通知
-  McpServer.kt           MCP サーバー（Streamable HTTP、ポート 8765）。ツール set_avatar_state
+  McpServer.kt           MCP サーバー（Streamable HTTP、ポート 8765）。ツール set_avatar_state / get_avatar_state
   McpAuth.kt             MCP の OAuth 2.1（画面の確認コードで許可）
   GrokButtonService.kt   ユーザー補助サービス。ボタン操作（押す・2 回押し・長押し）と、暗い部屋での画面オン・オフ
 app/src/main/assets/web/
@@ -93,7 +93,7 @@ app/src/main/assets/web/
   fx.js                  紙吹雪・虹色の軌跡・変形の部品の描画
   actions.js             「聞く」「考える」などの動作 → 表情の対応表
   voice.js               会話のイベント → 表情（仕様は docs/AVATAR-STATE-SPEC.md）
-  external.js            MCP から届いた状態 → 表情
+  external.js            MCP から届いた状態 → 表情と一言の吹き出し
   pairing.js             OAuth の確認コードを画面に出す
   life.js                待機中の暮らし（元気の値、昼と夜）
   touch.js               タッチの位置ごとの反応

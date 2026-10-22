@@ -49,8 +49,23 @@ object McpServer {
         "confused", "surprised", "sad", "angry", "celebrate", "bored", "alerting", "notifying",
     )
 
+    private const val CAPTION_MAX = 15
+    private const val MAX_DURATION_SEC = 600
+
+    /** A state from set_avatar_state: caption null = the state's default, "" = none. */
+    data class ExternalState(val state: String, val caption: String?, val durationSec: Double?)
+
     /** Shows a state on the page; set by MainActivity while it exists. Called on a worker thread. */
-    @Volatile var onState: ((String) -> Unit)? = null
+    @Volatile var onState: ((ExternalState) -> Unit)? = null
+
+    /** Runs a script on the page and hands back its JSON result (get_avatar_state). */
+    @Volatile var queryPage: ((String, (String?) -> Unit) -> Unit)? = null
+
+    /** Takes a small PNG of the screen (get_avatar_state include_image). */
+    @Volatile var takeSnapshot: (((ByteArray?) -> Unit) -> Unit)? = null
+
+    /** The face page is in the foreground (MainActivity resumed). */
+    @Volatile var pageVisible = false
 
     /** Shows or hides the pairing code on the page; set by MainActivity. Called on a worker thread. */
     @Volatile var onPairing: ((McpAuth.PairingEvent) -> Unit)? = null
@@ -404,41 +419,149 @@ object McpServer {
                     .put("protocolVersion", if (asked in PROTOCOL_VERSIONS) asked else PROTOCOL_VERSIONS[0])
                     .put("capabilities", JSONObject().put("tools", JSONObject().put("listChanged", false)))
                     .put("serverInfo", JSONObject().put("name", "grokspot").put("version", version))
-                    .put("instructions", "GrokSpot shows your face on an Echo Spot. Call set_avatar_state " +
-                        "whenever your expression should change with the conversation; it is not spoken."))
+                    .put("instructions", INSTRUCTIONS))
             }
             "ping" -> result(id, JSONObject())
-            "tools/list" -> result(id, JSONObject().put("tools", JSONArray().put(toolDefinition())))
+            "tools/list" -> result(id, JSONObject().put("tools", JSONArray().put(setStateTool()).put(getStateTool())))
             "tools/call" -> callTool(id, params)
             else -> error(id, -32601, "Method not found: $method")
         }
     }
 
-    private fun toolDefinition() = JSONObject()
+    private const val INSTRUCTIONS =
+        "GrokSpot shows your face on an Echo Spot, a small round display on the user's desk. " +
+        "Use set_avatar_state to show what you are doing or feeling: thinking while you work out an answer, " +
+        "searching or working while you use tools, then a feeling (happy, surprised, ...) when you reply. " +
+        "Nothing you set is spoken. Calls are optional; the face looks after itself when you do not call."
+
+    /** One line per state, so the model can tell close states apart (shown in the tool description). */
+    private val STATE_GUIDE = listOf(
+        "idle: calm, nothing going on (hands the face back to its own idle life)",
+        "listening: paying attention to the user",
+        "thinking: working out an answer (the head becomes typing dots)",
+        "working: busy with a task or a tool",
+        "searching: looking something up",
+        "happy: pleased, gentle joy",
+        "excited: bouncy, eager anticipation",
+        "celebrate: a big success worth a party (big spin and rainbow trails)",
+        "curious: interested, wants to know more",
+        "confused: did not understand, needs clarification",
+        "surprised: unexpected news",
+        "sad: sorry or disappointed",
+        "angry: annoyed (use sparingly)",
+        "bored: waiting with nothing to do",
+        "alerting: something needs the user's attention or went wrong (a \"!\")",
+        "notifying: a new result or message is ready (calmer than alerting)",
+    )
+
+    private fun setStateTool() = JSONObject()
         .put("name", "set_avatar_state")
-        .put("description", "画面に表示されているアバターの表情・状態を変更する。音声には影響しない。" +
-            " Changes the expression/state of the avatar shown on the screen. It does not affect speech.")
+        .put("description", "画面に表示されているアバターの表情・状態を変更する。音声には影響しない。 " +
+            "Changes the expression/state of the avatar on the Echo Spot screen. It does not affect speech. " +
+            "Typical flow: thinking while composing, searching/working while using tools, then a feeling such as " +
+            "happy when replying. The state stays until the next call, duration_sec, or 30 seconds, then the face " +
+            "returns to its idle life. States:\n" + STATE_GUIDE.joinToString("\n"))
         .put("inputSchema", JSONObject()
             .put("type", "object")
-            .put("properties", JSONObject().put("state", JSONObject()
-                .put("type", "string")
-                .put("description", "表示する状態名 / the state to show")
-                .put("enum", JSONArray(STATES))))
+            .put("properties", JSONObject()
+                .put("state", JSONObject()
+                    .put("type", "string")
+                    .put("description", "表示する状態名 / the state to show")
+                    .put("enum", JSONArray(STATES)))
+                .put("caption", JSONObject()
+                    .put("type", "string")
+                    .put("description", "Optional short caption shown above the face, up to $CAPTION_MAX characters " +
+                        "(e.g. \"調べ中…\", \"要確認！\"). Omit it for a default (an emoji for feelings, a short " +
+                        "phrase for actions); pass \"\" for none. It disappears when the state does."))
+                .put("duration_sec", JSONObject()
+                    .put("type", "number")
+                    .put("minimum", 1).put("maximum", MAX_DURATION_SEC)
+                    .put("description", "Optional: go back to idle after this many seconds (default 30).")))
             .put("required", JSONArray().put("state")))
 
+    private fun getStateTool() = JSONObject()
+        .put("name", "get_avatar_state")
+        .put("description", "アバターの今の状態を返す。 Returns the avatar's current state, when it last changed, " +
+            "what set it (mcp, voice conversation, or its own idle life), the caption, and viewer_connected " +
+            "(the screen is on and showing the face; it cannot tell whether a person is looking). " +
+            "Set include_image to also get a small picture of the screen.")
+        .put("inputSchema", JSONObject()
+            .put("type", "object")
+            .put("properties", JSONObject()
+                .put("include_image", JSONObject()
+                    .put("type", "boolean")
+                    .put("description", "Also return a small PNG of the screen (default false)."))))
+
     private fun callTool(id: Any, params: JSONObject): JSONObject {
-        val name = params.optString("name")
-        if (name != "set_avatar_state") return error(id, -32602, "Unknown tool: $name")
-        val state = params.optJSONObject("arguments")?.optString("state").orEmpty()
+        val args = params.optJSONObject("arguments") ?: JSONObject()
+        return when (val name = params.optString("name")) {
+            "set_avatar_state" -> setState(id, args)
+            "get_avatar_state" -> getState(id, args)
+            else -> error(id, -32602, "Unknown tool: $name")
+        }
+    }
+
+    private fun setState(id: Any, args: JSONObject): JSONObject {
+        val state = args.optString("state")
         // Unknown states are ignored, as voice.js does: still a success, just not applied.
         val applied = state in STATES
+        val caption = if (args.has("caption") && !args.isNull("caption")) shorten(args.optString("caption")) else null
+        val duration = if (args.has("duration_sec")) args.optDouble("duration_sec").takeIf { !it.isNaN() }
+            ?.coerceIn(1.0, MAX_DURATION_SEC.toDouble()) else null
         Log.i(TAG, "set_avatar_state($state)${if (applied) "" else " ignored"}")
-        if (applied) onState?.invoke(state)
+        if (applied) onState?.invoke(ExternalState(state, caption, duration))
         val outcome = JSONObject().put("ok", true).put("applied", applied)
-        return result(id, JSONObject()
-            .put("content", JSONArray().put(JSONObject().put("type", "text").put("text", outcome.toString())))
-            .put("structuredContent", outcome)
-            .put("isError", false))
+            .put("viewer_connected", viewerConnected())
+        return toolResult(id, outcome)
+    }
+
+    private fun getState(id: Any, args: JSONObject): JSONObject {
+        val status = queryPage?.let { query ->
+            val latch = java.util.concurrent.CountDownLatch(1)
+            var reply: String? = null
+            query("JSON.stringify(window.grokspot && grokspot.external.status())") { reply = it; latch.countDown() }
+            latch.await(2, java.util.concurrent.TimeUnit.SECONDS)
+            // evaluateJavascript returns the JSON string as a JSON string literal.
+            reply?.let { runCatching { JSONObject(JSONArray("[$it]").getString(0)) }.getOrNull() }
+        } ?: JSONObject().put("state", JSONObject.NULL)
+        status.put("viewer_connected", viewerConnected())
+        val result = JSONObject()
+        val content = JSONArray().put(JSONObject().put("type", "text").put("text", status.toString()))
+        if (args.optBoolean("include_image")) {
+            snapshot()?.let { png ->
+                content.put(JSONObject().put("type", "image").put("mimeType", "image/png")
+                    .put("data", android.util.Base64.encodeToString(png, android.util.Base64.NO_WRAP)))
+            }
+        }
+        return result(id, result.put("content", content).put("structuredContent", status).put("isError", false))
+    }
+
+    private fun toolResult(id: Any, outcome: JSONObject) = result(id, JSONObject()
+        .put("content", JSONArray().put(JSONObject().put("type", "text").put("text", outcome.toString())))
+        .put("structuredContent", outcome)
+        .put("isError", false))
+
+    /** Trims a caption to CAPTION_MAX characters (code points), dropping control characters. */
+    private fun shorten(text: String): String {
+        val clean = text.filter { !it.isISOControl() }.trim()
+        val points = clean.codePointCount(0, clean.length)
+        if (points <= CAPTION_MAX) return clean
+        return clean.substring(0, clean.offsetByCodePoints(0, CAPTION_MAX - 1)) + "…"
+    }
+
+    private fun viewerConnected(): Boolean {
+        val power = appContext.getSystemService(android.os.PowerManager::class.java)
+        return power.isInteractive && pageVisible
+    }
+
+    /** A small PNG of the screen, or null. */
+    private fun snapshot(): ByteArray? {
+        val take = takeSnapshot ?: return null
+        val latch = java.util.concurrent.CountDownLatch(1)
+        var png: ByteArray? = null
+        take { png = it; latch.countDown() }
+        latch.await(3, java.util.concurrent.TimeUnit.SECONDS)
+        return png
     }
 
     private fun result(id: Any, result: JSONObject) =

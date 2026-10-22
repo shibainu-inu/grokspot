@@ -33,8 +33,28 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
     private lateinit var voice: VoiceSession
-    private val mcpState: (String) -> Unit = { state ->
-        runOnUiThread { callPage("grokspot.external.state(${JSONObject.quote(state)})") }
+    private val mcpState: (McpServer.ExternalState) -> Unit = { s ->
+        val caption = s.caption?.let(JSONObject::quote) ?: "null"
+        val duration = s.durationSec?.let { (it * 1000).toLong().toString() } ?: "null"
+        runOnUiThread { callPage("grokspot.external.state(${JSONObject.quote(s.state)}, $caption, $duration)") }
+    }
+    private val mcpQuery: (String, (String?) -> Unit) -> Unit = { script, reply ->
+        runOnUiThread { webView.evaluateJavascript(script) { reply(it) } }
+    }
+    /** A 160 px PNG of this window, for get_avatar_state. */
+    private val mcpSnapshot: ((ByteArray?) -> Unit) -> Unit = { reply ->
+        runOnUiThread {
+            val view = window.decorView
+            if (view.width == 0) { reply(null); return@runOnUiThread }
+            val full = android.graphics.Bitmap.createBitmap(view.width, view.height, android.graphics.Bitmap.Config.ARGB_8888)
+            android.view.PixelCopy.request(window, full, { result ->
+                if (result != android.view.PixelCopy.SUCCESS) { reply(null); return@request }
+                val small = android.graphics.Bitmap.createScaledBitmap(full, 160, 160 * view.height / view.width, true)
+                val png = java.io.ByteArrayOutputStream()
+                small.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, png)
+                reply(png.toByteArray())
+            }, handler)
+        }
     }
     /** The OAuth pairing code (McpAuth) shown on the face page until it is used or expires. */
     private val mcpPairing: (McpAuth.PairingEvent) -> Unit = { event ->
@@ -119,6 +139,8 @@ class MainActivity : ComponentActivity() {
         // MCP: lets an agent elsewhere (the user's GrokBot) set the face, alongside Grok Voice.
         McpServer.onState = mcpState
         McpServer.onPairing = mcpPairing
+        McpServer.queryPage = mcpQuery
+        McpServer.takeSnapshot = mcpSnapshot
         McpServer.start(applicationContext)
     }
 
@@ -203,6 +225,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         webView.onResume()
+        McpServer.pageVisible = true
         GrokButton.onPress = { toggleVoice() }
         GrokButton.onHold = { callPage("grokspot.button('hold')") }
         if (!GrokButtonService.isRunning) {
@@ -211,6 +234,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        McpServer.pageVisible = false
         handler.removeCallbacks(openSettings)
         GrokButton.onPress = null
         GrokButton.onHold = null
@@ -228,6 +252,8 @@ class MainActivity : ComponentActivity() {
         // A recreated activity (e.g. after a language change) may already have taken over.
         if (McpServer.onState === mcpState) McpServer.onState = null
         if (McpServer.onPairing === mcpPairing) McpServer.onPairing = null
+        if (McpServer.queryPage === mcpQuery) McpServer.queryPage = null
+        if (McpServer.takeSnapshot === mcpSnapshot) McpServer.takeSnapshot = null
         webView.destroy()
         super.onDestroy()
     }

@@ -270,6 +270,7 @@
 
   /** Switches state: resets per-state timers and blinks. */
   GrokSpotMotion.prototype.setState = function (name) {
+    if (name !== this.state) this.stateSince = Date.now();
     var pinned = PINNED_EXPRESSION[name];
     this.bot.update({
       springFrequency: name === 'searching' || name === 'excited' ? 10 : 6,

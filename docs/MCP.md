@@ -13,32 +13,70 @@
 | エンドポイント | `POST http://<Echo Spot の IP>:8765/mcp` |
 | ポート | 8765（固定。`McpServer.PORT`） |
 | 起動 | アプリの起動と同時に自動で立ち上がる。ボタンの会話（Grok Voice）とは独立して動く |
-| ツール | `set_avatar_state(state)` の 1 つ |
+| ツール | `set_avatar_state`（顔を変える）、`get_avatar_state`（今の顔を知る） |
 | 認証 | 常に必要。OAuth 2.1（Echo Spot の画面に出る確認コードで許可）か、端末のトークン（後述） |
 | 対応プロトコル版 | 2025-11-25 / 2025-06-18 / 2025-03-26 / 2024-11-05 |
 
-### ツールの定義
+### ツール
 
-```json
-{
-  "name": "set_avatar_state",
-  "description": "画面に表示されているアバターの表情・状態を変更する。音声には影響しない。 Changes the expression/state of the avatar shown on the screen. It does not affect speech.",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "state": {
-        "type": "string",
-        "description": "表示する状態名 / the state to show",
-        "enum": ["idle", "listening", "thinking", "working", "searching", "happy", "excited", "curious",
-                 "confused", "surprised", "sad", "angry", "celebrate", "bored", "alerting", "notifying"]
-      }
-    },
-    "required": ["state"]
-  }
-}
-```
+追加の引数はすべて省略できます。`set_avatar_state(state)` だけの使い方はそのまま使えます。
 
-結果は `{"ok": true, "applied": true}` です。候補にない状態名は無視して、エラーにせず `{"ok": true, "applied": false}` を返します（voice.js と同じ扱い）。
+#### `set_avatar_state`
+
+| 引数 | 型 | 内容 |
+|---|---|---|
+| `state`（必須） | 文字列 | 表示する状態。下の 16 個のどれか |
+| `caption` | 文字列 | 顔の上に出す一言（15 文字まで、超えた分は「…」）。省略すると既定の一言、`""` なら出さない。状態が変わると消える |
+| `duration_sec` | 数値 | この秒数で待機（idle）に戻る（1〜600、既定 30） |
+
+結果は `{"ok": true, "applied": true, "viewer_connected": true}` です。候補にない状態名は無視して、エラーにせず `applied: false` を返します（voice.js と同じ扱い）。`viewer_connected` は「画面が点いていて顔が表示されている」ことで、人が見ているかまでは分かりません。
+
+**状態の目安**（ツールの説明文にも書いてあり、Grok はこれを見て選びます）
+
+| 状態 | 使う場面 | 既定の一言 |
+|---|---|---|
+| `idle` | 落ち着いている。何もない（待機中の暮らしに戻す） | なし |
+| `listening` | ユーザーの話に耳を傾けている | 聞いてるよ |
+| `thinking` | 答えを考えている（頭が「・・・」になる） | 考え中… |
+| `working` | 作業やツールの実行中 | 作業中… |
+| `searching` | 調べもの中 | 調べ中… |
+| `happy` | うれしい、穏やかな喜び | 😊 |
+| `excited` | わくわくしている、期待 | 🤩 |
+| `celebrate` | 大成功のお祝い（大回転と虹色の軌跡） | 🎉 |
+| `curious` | 興味がある、もっと知りたい | 👀 |
+| `confused` | 分からない、確認したい | ❓ |
+| `surprised` | 思いがけない知らせ | 😲 |
+| `sad` | 残念、申し訳ない | 😢 |
+| `angry` | むっとしている（控えめに） | 💢 |
+| `bored` | することがなく待っている | 💤 |
+| `alerting` | ユーザーの確認が必要、うまくいかなかった（「！」になる） | 要確認！ |
+| `notifying` | 新しい結果やお知らせがある（alerting より穏やか） | お知らせ |
+
+既定の一言は端末の言語（日本語・英語・中国語）で出ます。
+
+#### `get_avatar_state`
+
+今の顔の状態を返します。
+
+| 返り値 | 内容 |
+|---|---|
+| `state` / `since` | 今の状態と、それに変わった時刻 |
+| `source` | 誰がその顔にしたか：`mcp`（MCP から）、`voice`（ボタンの会話中）、`idle_life`（待機中の暮らし） |
+| `caption` | 今出ている一言 |
+| `last_mcp_state` / `last_mcp_at` | 最後に MCP から送られた状態と時刻 |
+| `viewer_connected` | 画面が点いていて顔が表示されているか |
+
+`include_image: true` を付けると、画面の小さな画像（160 px の PNG）も返します。
+
+### ボットの状態に合わせた自動の動きについて
+
+Grok の連携（カスタムコネクタ）では、Grok がツールを呼ぶ直前に MCP の接続を開き、呼んだら閉じます。返信を考えている途中や、ほかのツールを使っている様子は Echo Spot に届かないので、「ボットが考えている間は自動で thinking」のような切り替えは、今の仕組みではできません。代わりに次の形で補います。
+
+- ボットが考え始めに `thinking`、ツールの前に `searching` や `working`、返信のときに気持ちを送る（説明文でこの流れを勧めています）
+- `duration_sec` と既定の 30 秒で、送りっぱなしでも自動で待機中の暮らしに戻る
+- ボットが何も送らなくても、顔は待機中の暮らしで自然に動き続ける
+
+Echo Spot 自身での会話（ボタンで話す Grok Voice）では、会話のイベントから自動で切り替わります（[AVATAR-STATE-SPEC.md](AVATAR-STATE-SPEC.md)）。
 
 ## 顔への反映と優先順位
 
