@@ -15,6 +15,9 @@
 // - A caption goes with the state, in the same place and style as the mic hint
 //   ("話しかけてください"): an emoji or a short word, the agent's own or by default
 //   (an emoji for a feeling, a word for an action). It goes away with the state.
+// - notifying and alerting also leave an unread mark (📩 / ❗) at the bottom of
+//   the screen after they end, so a notice is not missed when nobody was
+//   looking. A touch on the screen or an idle from the agent clears it.
 (function () {
   'use strict';
 
@@ -34,7 +37,11 @@
   var WORD = { thinking: 'Thinking', working: 'Working', searching: 'Searching', listening: 'Listening' };
   var PHRASE = { alerting: true, notifying: true };
 
+  var UNREAD_MARKS = { alerting: '❗', notifying: '📩' };
+
   var hold = null;
+  var unread = {};
+  var unreadBox = document.getElementById('unread');
   var ring = document.getElementById('mcp-ring');
   var bubble = document.getElementById('caption');
   var captionState = null;
@@ -49,6 +56,28 @@
     void ring.offsetWidth;
     ring.classList.add('flash');
   }
+
+  function showUnread() {
+    var marks = ['alerting', 'notifying'].filter(function (k) { return unread[k]; });
+    unreadBox.textContent = marks.map(function (k) { return UNREAD_MARKS[k]; }).join(' ');
+    document.body.classList.toggle('unread', marks.length > 0);
+  }
+
+  function markUnread(name) {
+    if (!UNREAD_MARKS[name]) return;
+    unread[name] = true;
+    showUnread();
+  }
+
+  function clearUnread(why) {
+    if (!unread.alerting && !unread.notifying) return;
+    console.info('external: unread cleared (' + why + ')');
+    unread = {};
+    showUnread();
+  }
+
+  // Touching the screen means the person has seen it.
+  document.addEventListener('pointerdown', function () { clearUnread('touch'); });
 
   function talking() {
     return window.grokspot.voice && window.grokspot.voice.connected();
@@ -108,6 +137,7 @@
       if (window.getBotState() !== name) return true;
       emphasize();
       showCaption(name, text);
+      markUnread(name);
       remember(name);
       // In a conversation the voice integration owns the face; the hold only times the caption.
       hold = setTimeout(hideCaption, ms);
@@ -115,6 +145,7 @@
     }
     emphasize();
     if (name === 'idle') {
+      clearUnread('idle');
       hideCaption();
       window.grokspot.act('idle');
       remember(name);
@@ -122,6 +153,7 @@
     }
     window.grokspot.state(name);
     showCaption(name, text);
+    markUnread(name);
     remember(name);
     hold = setTimeout(function () {
       hold = null;
@@ -148,6 +180,8 @@
       since: window.motion.stateSince ? new Date(window.motion.stateSince).toISOString() : null,
       source: source,
       caption: captionState === now ? last.caption : null,
+      unread: !!(unread.alerting || unread.notifying),
+      unread_kinds: ['alerting', 'notifying'].filter(function (k) { return unread[k]; }),
       last_mcp_state: last.state,
       last_mcp_at: last.since,
     };

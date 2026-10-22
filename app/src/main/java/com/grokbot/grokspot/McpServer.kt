@@ -491,7 +491,9 @@ object McpServer {
             "In-progress states (thinking, searching, working) are optional; use them only for long lookups or tasks. " +
             "As a guide, call it at most once or twice per reply. To show a state longer, pass duration_sec " +
             "(up to $MAX_DURATION_SEC), e.g. alerting with duration_sec 30 for an important notice, or working with " +
-            "duration_sec 120 during a long task and then a feeling when it is done. States:\n" +
+            "duration_sec 120 during a long task and then a feeling when it is done. " +
+            "notifying and alerting also leave an unread mark (📩 / ❗) on the screen after they end, so the user " +
+            "can see it later; it stays until the user touches the screen or you send idle. States:\n" +
             STATE_GUIDE.joinToString("\n"))
         .put("inputSchema", JSONObject()
             .put("type", "object")
@@ -515,7 +517,8 @@ object McpServer {
         .put("name", "get_avatar_state")
         .put("description", "アバターの今の状態を返す。 Returns the avatar's current state, when it last changed, " +
             "what set it (mcp, voice conversation, or its own idle life), the caption, and viewer_connected " +
-            "(the screen is on and showing the face; it cannot tell whether a person is looking). " +
+            "(the screen is on and showing the face; it cannot tell whether a person is looking), and unread " +
+            "(a notifying/alerting mark is still waiting to be seen; it clears when the user touches the screen). " +
             "Set include_image to also get a small picture of the screen.")
         .put("inputSchema", JSONObject()
             .put("type", "object")

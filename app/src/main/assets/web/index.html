@@ -129,6 +129,28 @@
   /* 絵文字は少しだけ大きく、同じ下端にそろえる。 */
   #caption.emoji { font-size: 24px; bottom: 26px; }
   /*
+   * 未読のしるし（external.js）。notifying / alerting のあと、画面に触れるか idle が来るまで残す。
+   * 一言やマイクの案内文と同じ場所なので、それらが出ている間は隠す。
+   */
+  #unread {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 26px;
+    text-align: center;
+    font: 24px/1 system-ui, sans-serif;
+    opacity: 0;
+    transition: opacity 0.4s;
+    pointer-events: none;
+  }
+  body.unread #unread { opacity: 1; animation: unread-breathe 3s ease-in-out infinite; }
+  body.unread.captioned #unread,
+  body.unread[data-mic] #unread { opacity: 0; animation: none; }
+  @keyframes unread-breathe {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+  }
+  /*
    * MCP で顔が変わったときの光（external.js）。マイクの輪と同じ見た目で、一度だけ光って消える
    * （光り続けるのは「話しかけてよい」の印なので、こちらは光り続けない）。
    */
@@ -244,6 +266,7 @@
 <div id="mic-hint"></div>
 <div id="mcp-ring"></div>
 <div id="caption" aria-live="polite"></div>
+<div id="unread" aria-live="polite"></div>
 <div id="pairing" aria-live="polite">
   <div class="pair-title"></div>
   <div class="pair-client"></div>
