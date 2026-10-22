@@ -27,6 +27,7 @@ LineageOS を入れた Echo Spot の上で動き、xAI の Grok Voice API と音
 | 入力待ちの表示 | 話しかけてよいときは画面の縁が青く光り、「話しかけてください」と出る |
 | 待機中の暮らし | 休む・見回す・考えごと・鼻歌・遊ぶ・落書き・うたた寝・睡眠を、「元気」の値に合わせて自然につなぐ。夜は朝まで眠る |
 | タッチ | 目と頭が指を追う。頭のてっぺんを撫でる・目をつつく・体をつつく・何もない所を触る・連打で反応が変わる |
+| GrokBot から操作（MCP） | 内蔵の MCP サーバー（ポート 8765）のツール `set_avatar_state` で、スマホや PC の GrokBot が顔を動かせる。詳しくは [docs/MCP.md](docs/MCP.md) |
 | 変形とエフェクト | 考え中の「・・・」、警告の「！」、レーダー、進捗リング、ペンなど 14 種の変形と、紙吹雪・虹色の軌跡 |
 | 専用端末として | ホームアプリとして起動。暗い部屋では画面が消え、明るくなるとつく。ボタン長押しで電源メニュー |
 
@@ -64,6 +65,7 @@ powershell -ExecutionPolicy Bypass -File scripts\set-api-key.ps1
 app/src/main/java/com/grokbot/grokspot/
   MainActivity.kt        全画面の WebView。ボタンで会話の開始・終了、5 秒長押しで設定を開く抜け道
   VoiceSession.kt        Grok Voice（wss://api.x.ai/v1/realtime）との会話。マイク送信・音声再生・イベント通知
+  McpServer.kt           MCP サーバー（Streamable HTTP、ポート 8765）。ツール set_avatar_state
   GrokButtonService.kt   ユーザー補助サービス。ボタン操作（押す・2 回押し・長押し）と、暗い部屋での画面オン・オフ
 app/src/main/assets/web/
   index.html             顔のページ。入力待ちの輪と文字
@@ -72,7 +74,8 @@ app/src/main/assets/web/
   motion.js              体の動き・まばたき・目線・14 種の変形
   fx.js                  紙吹雪・虹色の軌跡・変形の部品の描画
   actions.js             「聞く」「考える」などの動作 → 表情の対応表
-  voice.js               会話のイベント → 表情（仕様は docs/DESIGN.md）
+  voice.js               会話のイベント → 表情（仕様は docs/AVATAR-STATE-SPEC.md）
+  external.js            MCP から届いた状態 → 表情
   life.js                待機中の暮らし（元気の値、昼と夜）
   touch.js               タッチの位置ごとの反応
 device/
@@ -80,10 +83,13 @@ device/
 scripts/
   build-web.ps1          描画ライブラリを改造したときに grokbot.js を作り直す（通常は不要）
   set-api-key.ps1        API キーを端末のアプリ専用領域に書き込む
+  set-mcp-token.ps1      MCP サーバーの認証トークンを設定する（公開する前に必須）
+  mcp-call.ps1           PC から MCP サーバーを呼んで動作を確かめる
 docs/
   SETUP.md               端末の準備からインストールまでの詳しい手順
   DESIGN.md              設計の意図と仕組み
   AVATAR-STATE-SPEC.md   会話中のアバター状態遷移の仕様（Grok Voice API 版）
+  MCP.md                 MCP サーバーの使い方と、GrokBot への登録手順
 ```
 
 設計の考え方（なぜ関数呼び出しで表情を渡すのか、なぜ会話中に割り込めないのか、など）は [docs/DESIGN.md](docs/DESIGN.md) に、会話中のアバターの状態遷移は Grok と共同でまとめた仕様書 [docs/AVATAR-STATE-SPEC.md](docs/AVATAR-STATE-SPEC.md) にあります。

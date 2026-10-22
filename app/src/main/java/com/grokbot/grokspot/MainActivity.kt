@@ -33,6 +33,9 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
     private lateinit var voice: VoiceSession
+    private val mcpState: (String) -> Unit = { state ->
+        runOnUiThread { callPage("grokspot.external.state(${JSONObject.quote(state)})") }
+    }
     private val handler = Handler(Looper.getMainLooper())
     private val openSettings = Runnable { openSystemSettings() }
     private var holdX = 0f
@@ -102,6 +105,10 @@ class MainActivity : ComponentActivity() {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_MIC)
         }
+
+        // MCP: lets an agent elsewhere (the user's GrokBot) set the face, alongside Grok Voice.
+        McpServer.onState = mcpState
+        McpServer.start(applicationContext)
     }
 
     /** Grok ボタン: 会話を始める・終える。 */
@@ -207,6 +214,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        // A recreated activity (e.g. after a language change) may already have taken over.
+        if (McpServer.onState === mcpState) McpServer.onState = null
         webView.destroy()
         super.onDestroy()
     }

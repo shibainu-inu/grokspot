@@ -19,6 +19,11 @@
 // picked a feeling (happy, curious...), that face stays for AFTERGLOW_MS
 // before the idle life takes over. The device decides this, not the model.
 //
+// MCP (external_state, from an agent elsewhere such as the user's GrokBot,
+// via external.js) goes through the same rules: during a reply it counts like
+// set_avatar_state; between replies it is shown until the next event; it never
+// interrupts the user speaking.
+//
 // Whether the mic is open is shown apart from the face (ring and hint in
 // index.html): "waiting" while it waits for the user, "hearing" while the user
 // talks, nothing while Grok thinks or speaks (the mic is muted then).
@@ -47,6 +52,7 @@
   var pending = null;
   var failed = false;
   var audioSince = 0;
+  var responding = false;
   // The feeling Grok picked in the last reply, and when that reply ended.
   var lastFeeling = null;
   var lastReplyEnd = 0;
@@ -112,6 +118,7 @@
       case 'speech_stopped':
         break;
       case 'response_created':
+        responding = true;
         audioSince = 0;
         auto('thinking');
         mic(null);
@@ -136,7 +143,9 @@
         break;
       case 'response_done':
         // A follow-up reply is on its way, or the user has already cut in.
-        if (detail === 'continuing' || shown === 'listening') return;
+        if (detail === 'continuing') return;
+        responding = false;
+        if (shown === 'listening') return;
         var now = Date.now();
         var short = audioSince > 0 && now - audioSince < SHORT_REPLY_MS;
         var hold = short ? AI_STATE_MIN_SHORT_MS : AI_STATE_MIN_MS;
@@ -149,6 +158,16 @@
           mic('waiting');
         });
         break;
+      case 'external_state':
+        if (!window.isBotState(detail)) return;
+        if (shown === 'listening' && detail !== 'listening') return;
+        cancelPending();
+        if (responding) {
+          aiState = detail;
+          aiSince = Date.now();
+        }
+        apply(detail);
+        break;
       case 'error':
         // Errors during a conversation leave the face alone; a failed start shows "!".
         if (!connected) {
@@ -159,6 +178,7 @@
         break;
       case 'disconnected':
         connected = false;
+        responding = false;
         aiState = null;
         mic(null);
         // Afterglow: linger on the last feeling if the conversation ends just after it.
