@@ -13,8 +13,8 @@
 //   this face: the head pops and blinks (motion.emphasize) and the screen edge
 //   lights up once, in the same style as the mic ring.
 // - A caption goes with the state, in the same place and style as the mic hint
-//   ("話しかけてください"): the state's own emoji (feelings) or word (actions); the
-//   agent does not choose it. It goes away with the state.
+//   ("話しかけてください"): the state's own emoji (the agent does not choose it).
+//   It goes away with the state.
 // - notifying and alerting also leave an unread mark (📩 / ❗) at the bottom of
 //   the screen after they end, so a notice is not missed when nobody was
 //   looking. A touch on the screen or an idle from the agent clears it.
@@ -27,17 +27,17 @@
   // How often to check that the captioned state is still the one showing.
   var CAPTION_CHECK_MS = 400;
 
-  // Default captions. Feelings get an emoji; actions a word: in English for every
-  // language (WORD), or from i18n.js (caption.<state>) for the rest.
+  // The caption for each state: an emoji, the same in every language. idle has none.
   // No face emoji: they are hard to make out at this size on the Echo Spot.
   var EMOJI = {
     happy: '❤️', excited: '✨', celebrate: '🎉', curious: '👀', confused: '❓',
     surprised: '⁉️', sad: '💧', angry: '💢', bored: '💤',
+    thinking: '💭', working: '🔧', searching: '🔍', listening: '👂',
+    alerting: '❗', notifying: '📩',
   };
-  var WORD = { thinking: 'Thinking', working: 'Working', searching: 'Searching', listening: 'Listening' };
-  var PHRASE = { alerting: true, notifying: true };
 
-  var UNREAD_MARKS = { alerting: '❗', notifying: '📩' };
+  // The unread marks are the same emoji as the states that leave them.
+  var UNREAD_MARKS = { alerting: EMOJI.alerting, notifying: EMOJI.notifying };
 
   var hold = null;
   var unread = {};
@@ -84,10 +84,7 @@
   }
 
   function defaultCaption(name) {
-    if (EMOJI[name]) return EMOJI[name];
-    if (WORD[name]) return WORD[name];
-    if (PHRASE[name]) return window.grokspotI18n.t('caption.' + name);
-    return '';
+    return EMOJI[name] || '';
   }
 
   function hideCaption() {

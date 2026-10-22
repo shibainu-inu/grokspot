@@ -16,8 +16,6 @@
       'pair.title': 'Connection request',
       'pair.hint': 'Enter this code on the approval page',
       'pair.done': 'Connected',
-      'caption.alerting': 'Check this',
-      'caption.notifying': 'News',
     },
     ja: {
       'mic.waiting': '話しかけてください',
@@ -25,8 +23,6 @@
       'pair.title': '接続の確認',
       'pair.hint': '許可画面にこのコードを入力してください',
       'pair.done': '接続しました',
-      'caption.alerting': '要確認',
-      'caption.notifying': 'お知らせ',
     },
     zh: {
       'mic.waiting': '请跟我说话',
@@ -34,8 +30,6 @@
       'pair.title': '连接确认',
       'pair.hint': '请在授权页面输入此代码',
       'pair.done': '已连接',
-      'caption.alerting': '请确认',
-      'caption.notifying': '新消息',
     },
   };
   var HTML_LANG = { en: 'en', ja: 'ja', zh: 'zh-Hans' };
