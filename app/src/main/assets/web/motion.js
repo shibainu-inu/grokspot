@@ -69,7 +69,8 @@
   }
 
   // States that hold one expression, and lids that never drop below a floor.
-  var PINNED_EXPRESSION = { suspicious: 14, confused: 14, drowsy: 4, bored: 4, sad: 4 };
+  // idle keeps its resting face 0 (its pool also has 8, the "ハ" eyes, which the user did not want).
+  var PINNED_EXPRESSION = { idle: 0, suspicious: 14, confused: 14, drowsy: 4, bored: 4, sad: 4 };
   var LID_FLOOR = { drowsy: 0.8, bored: 0.8, sad: 0.8 };
 
   // Morphs: the head shrinks into a small part of a symbol. Value is the head radius scale (units).
