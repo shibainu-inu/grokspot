@@ -152,7 +152,7 @@ DevTools のコンソールで使える主な関数：
 |---|---|
 | `setBotState('radar')` | 表情を直接切り替える |
 | `startTour()` | 主な状態を順に見せる |
-| `grokspotLife.play('doodle')` / `setEnergy(0.1)` / `status()` | 待機中の暮らしを試す |
+| `grokspotLife.play('tryOrbit')` / `play('dance')` / `setEnergy(0.1)` / `setMood('playful')` / `setSpeed(5)` / `status()` | 待機中の暮らしを試す（`setSpeed` は早送り。`1` で元に戻る） |
 | `grokspot.voice.event('speech_started')` | 会話のイベントをまねる |
 
 ## 元に戻す
