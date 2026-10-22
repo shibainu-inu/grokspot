@@ -475,7 +475,8 @@ object McpServer {
         .put("description", "画面に表示されているアバターの表情・状態を変更する。音声には影響しない。 " +
             "Changes the expression/state of the avatar on the Echo Spot screen. It does not affect speech. " +
             "Typical flow: thinking while composing, searching/working while using tools, then a feeling such as " +
-            "happy when replying. The state stays until the next call, duration_sec, or 30 seconds, then the face " +
+            "happy when replying; when you finish, send a feeling or idle. The state stays until the next call, " +
+            "duration_sec, or by default 7 seconds (thinking/searching/working) or 15 seconds (others), then the face " +
             "returns to its idle life. States:\n" + STATE_GUIDE.joinToString("\n"))
         .put("inputSchema", JSONObject()
             .put("type", "object")
@@ -492,7 +493,7 @@ object McpServer {
                 .put("duration_sec", JSONObject()
                     .put("type", "number")
                     .put("minimum", 1).put("maximum", MAX_DURATION_SEC)
-                    .put("description", "Optional: go back to idle after this many seconds (default 30).")))
+                    .put("description", "Optional: go back to idle after this many seconds (default 7 for thinking/searching/working, 15 otherwise).")))
             .put("required", JSONArray().put("state")))
 
     private fun getStateTool() = JSONObject()
