@@ -56,7 +56,8 @@ class McpAuth(private val filesDir: File, private val pairing: (PairingEvent) ->
     private val pending = LinkedHashMap<String, Pending>()
     private val grants = HashMap<String, Grant>()
     private val storeFile = File(filesDir, STORE_FILE)
-    private val store: JSONObject = load()
+    private var store: JSONObject = load()
+    private var storeStamp = stamp()
 
     // -------------------------------------------------------------- metadata
 
@@ -90,6 +91,7 @@ class McpAuth(private val filesDir: File, private val pairing: (PairingEvent) ->
      */
     @Synchronized
     fun register(body: JSONObject): Pair<Int, JSONObject> {
+        refresh()
         val now = System.currentTimeMillis()
         registrations.removeAll { now - it > REGISTER_WINDOW_MS }
         if (registrations.size >= MAX_REGISTRATIONS) {
@@ -148,6 +150,7 @@ class McpAuth(private val filesDir: File, private val pairing: (PairingEvent) ->
     /** The redirect URIs and name of a client: registered here, or a metadata document URL. */
     private fun client(clientId: String): Pair<List<String>, String>? {
         synchronized(this) {
+            refresh()
             store.getJSONObject("clients").optJSONObject(clientId)?.let { c ->
                 val uris = c.getJSONArray("redirect_uris")
                 return (0 until uris.length()).map { uris.getString(it) } to c.optString("name")
@@ -312,6 +315,7 @@ class McpAuth(private val filesDir: File, private val pairing: (PairingEvent) ->
 
     /** POST /token. Returns status and JSON body. */
     fun token(form: Map<String, String>, basicClientId: String?): Pair<Int, JSONObject> {
+        refresh()
         val clientId = form["client_id"] ?: basicClientId ?: return 401 to oauthError("invalid_client", "client_id is required")
         return when (form["grant_type"]) {
             "authorization_code" -> {
@@ -379,6 +383,7 @@ class McpAuth(private val filesDir: File, private val pairing: (PairingEvent) ->
     /** True if `token` is a live access token issued here. */
     @Synchronized
     fun isValidAccessToken(token: String): Boolean {
+        refresh()
         val hash = sha256Hex(token)
         val tokens = store.getJSONArray("tokens")
         val now = System.currentTimeMillis()
@@ -406,6 +411,22 @@ class McpAuth(private val filesDir: File, private val pairing: (PairingEvent) ->
 
     // --------------------------------------------------------------- helpers
 
+    private fun stamp() = if (storeFile.isFile) storeFile.lastModified() else -1L
+
+    /**
+     * Picks up changes made to the store file from outside (scripts/set-mcp-token.ps1
+     * -RevokeOAuth deletes it). Force-stopping the app to reload it would also switch
+     * off the Grok button's accessibility service, so the app notices by itself.
+     */
+    @Synchronized
+    private fun refresh() {
+        val now = stamp()
+        if (now == storeStamp) return
+        Log.i(TAG, "OAuth store changed on disk, reloading")
+        store = load()
+        storeStamp = now
+    }
+
     private fun load(): JSONObject = try {
         JSONObject(storeFile.readText())
     } catch (_: Exception) {
@@ -420,6 +441,7 @@ class McpAuth(private val filesDir: File, private val pairing: (PairingEvent) ->
         val tmp = File(filesDir, "$STORE_FILE.tmp")
         tmp.writeText(store.toString())
         tmp.renameTo(storeFile)
+        storeStamp = stamp()
     }
 
     private fun randomToken(bytes: Int): String {

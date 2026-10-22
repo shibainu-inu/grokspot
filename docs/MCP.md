@@ -228,7 +228,7 @@ No closing call is needed, and you do not have to mention the call in your reply
 
 | 取り消したいもの | 方法 |
 |---|---|
-| OAuth で許可したクライアント全部 | `scripts\set-mcp-token.ps1 -RevokeOAuth`（アプリが再起動します） |
+| OAuth で許可したクライアント全部 | `scripts\set-mcp-token.ps1 -RevokeOAuth`（すぐに反映されます） |
 | 動作確認用の端末のトークン | `scripts\set-mcp-token.ps1`（作り直すと古いトークンは使えなくなる） |
 
 ### ツールを更新したとき

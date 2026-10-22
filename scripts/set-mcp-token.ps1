@@ -17,13 +17,10 @@ $ErrorActionPreference = 'Stop'
 $package = 'com.grokbot.grokspot'
 $target = if ($Serial) { @('-s', $Serial) } else { @() }
 
-function Restart-App {
-    adb @target shell "am force-stop $package; am start -n $package/.MainActivity" | Out-Null
-}
-
 if ($RevokeOAuth) {
+    # アプリは記録のファイルが消えたことに自分で気づく。強制停止はしない
+    # （強制停止すると Android が Grok ボタンのユーザー補助サービスをオフにしてしまうため）。
     adb @target shell "run-as $package rm -f files/mcp_oauth.json"
-    Restart-App
     Write-Host 'OAuth で許可したクライアントをすべて取り消しました。つなぎ直すときは、もう一度画面のコードで許可してください。'
     exit 0
 }
