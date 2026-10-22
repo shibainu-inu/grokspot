@@ -23,10 +23,12 @@ import java.util.concurrent.Executors
  * - Endpoint: POST http://<device>:[PORT]/mcp with JSON-RPC 2.0 messages; the
  *   reply is plain JSON (no SSE stream, so GET /mcp answers 405).
  * - One tool: set_avatar_state(state). Unknown states are ignored, not errors.
- * - Optional auth: if files/mcp_token exists (scripts/set-mcp-token.ps1), every
- *   request needs "Authorization: Bearer <token>" or "?key=<token>" in the URL.
- * - Requests carrying an Origin header are refused: no browser should call this,
- *   and it blocks DNS rebinding from web pages on the same network.
+ * - Auth is always on. Either OAuth 2.1 (McpAuth: the client registers itself
+ *   and the user approves with a code shown on the Echo Spot), or the device's
+ *   own token (files/mcp_token, made on first start; scripts/set-mcp-token.ps1)
+ *   as "Authorization: Bearer <token>" or "?key=<token>".
+ * - Requests to /mcp carrying an Origin header are refused: no browser should
+ *   call it, and it blocks DNS rebinding from web pages on the same network.
  *
  * It runs for the life of the app process, apart from VoiceSession; states go
  * to the page through [onState] (MainActivity), which applies the same
@@ -50,16 +52,27 @@ object McpServer {
     /** Shows a state on the page; set by MainActivity while it exists. Called on a worker thread. */
     @Volatile var onState: ((String) -> Unit)? = null
 
+    /** Shows or hides the pairing code on the page; set by MainActivity. Called on a worker thread. */
+    @Volatile var onPairing: ((McpAuth.PairingEvent) -> Unit)? = null
+
     private var server: ServerSocket? = null
+    private lateinit var appContext: Context
     private lateinit var filesDir: File
+    private lateinit var auth: McpAuth
     private var version = "0"
     private val workers = Executors.newCachedThreadPool()
 
     @Synchronized
     fun start(context: Context) {
         if (server != null) return
+        appContext = context.applicationContext
         filesDir = context.filesDir
         version = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0"
+        ensureToken()
+        auth = McpAuth(filesDir) { event ->
+            if (event is McpAuth.PairingEvent.Show) wakeScreen()
+            onPairing?.invoke(event)
+        }
         val socket = try {
             ServerSocket(PORT, 16, InetAddress.getByName("0.0.0.0"))
         } catch (e: Exception) {
@@ -73,11 +86,30 @@ object McpServer {
                 workers.execute { serve(client) }
             }
         }, "GrokSpot-mcp").start()
-        Log.i(TAG, "MCP server on port $PORT (auth ${if (token() != null) "on" else "off"})")
+        Log.i(TAG, "MCP server on port $PORT")
     }
 
     private fun token(): String? =
         File(filesDir, TOKEN_FILE).takeIf { it.isFile }?.readText()?.trim()?.takeIf { it.isNotEmpty() }
+
+    /** Secure by default: the device makes its own token the first time. */
+    private fun ensureToken() {
+        if (token() != null) return
+        val bytes = ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
+        val made = android.util.Base64.encodeToString(bytes,
+            android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP)
+        File(filesDir, TOKEN_FILE).writeText(made)
+        Log.i(TAG, "Made a new MCP token")
+    }
+
+    /** Turns the screen on so the pairing code can be read. */
+    @Suppress("DEPRECATION") // ACQUIRE_CAUSES_WAKEUP still works on Android 11 and has no replacement for this.
+    private fun wakeScreen() {
+        val power = appContext.getSystemService(android.os.PowerManager::class.java)
+        power.newWakeLock(android.os.PowerManager.SCREEN_BRIGHT_WAKE_LOCK or
+            android.os.PowerManager.ACQUIRE_CAUSES_WAKEUP, "GrokSpot:pairing").acquire(10_000)
+        GrokButtonService.noteActivity()
+    }
 
     // ------------------------------------------------------------------ HTTP
 
@@ -147,35 +179,73 @@ object McpServer {
     private fun respond(out: OutputStream, status: Int, type: String?, body: String,
                         extra: Map<String, String> = emptyMap()) {
         val bytes = body.toByteArray(Charsets.UTF_8)
-        val reason = mapOf(200 to "OK", 202 to "Accepted", 204 to "No Content", 400 to "Bad Request",
-            401 to "Unauthorized", 403 to "Forbidden", 404 to "Not Found", 405 to "Method Not Allowed",
-            500 to "Internal Server Error")[status] ?: "OK"
+        val reason = mapOf(200 to "OK", 201 to "Created", 202 to "Accepted", 204 to "No Content",
+            302 to "Found", 400 to "Bad Request", 401 to "Unauthorized", 403 to "Forbidden",
+            404 to "Not Found", 405 to "Method Not Allowed", 500 to "Internal Server Error")[status] ?: "OK"
         val head = StringBuilder("HTTP/1.1 $status $reason\r\n")
         if (type != null) head.append("Content-Type: $type\r\n")
-        head.append("Content-Length: ${bytes.size}\r\nConnection: close\r\n")
+        head.append("Content-Length: ${bytes.size}\r\nConnection: close\r\nCache-Control: no-store\r\n")
         extra.forEach { (k, v) -> head.append("$k: $v\r\n") }
-        if (status == 401) head.append("WWW-Authenticate: Bearer\r\n")
         head.append("\r\n")
         out.write(head.toString().toByteArray(Charsets.UTF_8))
         out.write(bytes)
         out.flush()
     }
 
+    /** The public base URL the client used (through a tunnel this is its https host). */
+    private fun baseUrl(request: Request): String {
+        val host = request.headers["x-forwarded-host"] ?: request.headers["host"] ?: "localhost:$PORT"
+        val proto = request.headers["x-forwarded-proto"]?.substringBefore(',')?.trim() ?: "http"
+        return "$proto://$host"
+    }
+
     private fun handle(request: Request, out: OutputStream) {
-        if (request.path == "/" && request.method == "GET") {
-            respond(out, 200, "text/plain; charset=utf-8", "GrokSpot MCP server: POST /mcp\n")
-            return
+        val base = baseUrl(request)
+        when (request.path) {
+            "/" -> if (request.method == "GET") {
+                respond(out, 200, "text/plain; charset=utf-8", "GrokSpot MCP server: POST /mcp\n")
+                return
+            }
+            "/mcp" -> { handleMcp(request, out, base); return }
+            "/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp" ->
+                if (request.method == "GET") { respond(out, 200, JSON_TYPE, auth.resourceMetadata(base).toString(), CORS); return }
+            "/.well-known/oauth-authorization-server", "/.well-known/openid-configuration" ->
+                if (request.method == "GET") { respond(out, 200, JSON_TYPE, auth.serverMetadata(base).toString(), CORS); return }
+            "/register" -> if (request.method == "POST") {
+                val body = try { JSONObject(request.body.toString(Charsets.UTF_8)) } catch (_: Exception) { JSONObject() }
+                val (status, reply) = auth.register(body)
+                respond(out, status, JSON_TYPE, reply.toString(), CORS)
+                return
+            }
+            "/authorize" -> { handleAuthorize(request, out, base); return }
+            "/token" -> if (request.method == "POST") {
+                val (status, reply) = auth.token(parseForm(request.body), basicClientId(request))
+                respond(out, status, JSON_TYPE, reply.toString(), CORS)
+                return
+            }
         }
-        if (request.path != "/mcp") { respond(out, 404, "text/plain", "not found"); return }
+        if (request.method == "OPTIONS") { respond(out, 204, null, "", CORS); return }
+        respond(out, 404, "text/plain", "not found")
+    }
+
+    private fun handleMcp(request: Request, out: OutputStream, base: String) {
         if (request.headers.containsKey("origin")) {
             Log.w(TAG, "Refused a request with Origin ${request.headers["origin"]}")
             respond(out, 403, "text/plain", "origin not allowed")
             return
         }
+        val bearer = request.headers["authorization"]?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
+            ?.substring(7)?.trim()
+        val key = request.query["key"]
         val expected = token()
-        if (expected != null) {
-            val given = request.headers["authorization"]?.removePrefix("Bearer ")?.trim() ?: request.query["key"]
-            if (given != expected) { respond(out, 401, "text/plain", "unauthorized"); return }
+        val allowed = (expected != null && (bearer == expected || key == expected)) ||
+            (bearer != null && auth.isValidAccessToken(bearer))
+        if (!allowed) {
+            // Points OAuth clients at the metadata (RFC 9728), so a URL alone is enough to connect.
+            val challenge = "Bearer resource_metadata=\"$base/.well-known/oauth-protected-resource/mcp\"" +
+                (if (bearer != null) ", error=\"invalid_token\"" else "") + ", scope=\"${McpAuth.SCOPE}\""
+            respond(out, 401, "text/plain", "unauthorized", mapOf("WWW-Authenticate" to challenge))
+            return
         }
         when (request.method) {
             "POST" -> handlePost(request, out)
@@ -184,6 +254,113 @@ object McpServer {
             "DELETE" -> respond(out, 204, null, "")
             else -> respond(out, 405, "text/plain", "method not allowed", mapOf("Allow" to "POST, DELETE"))
         }
+    }
+
+    // ---------------------------------------------------------------- OAuth
+
+    /** Metadata, registration and tokens may be read by browser-based MCP clients too. */
+    private val CORS = mapOf(
+        "Access-Control-Allow-Origin" to "*",
+        "Access-Control-Allow-Headers" to "Authorization, Content-Type, MCP-Protocol-Version",
+        "Access-Control-Allow-Methods" to "GET, POST, OPTIONS",
+    )
+
+    private fun parseForm(body: ByteArray): Map<String, String> =
+        body.toString(Charsets.UTF_8).split('&').mapNotNull {
+            val eq = it.indexOf('=')
+            if (eq <= 0) null else URLDecoder.decode(it.substring(0, eq), "UTF-8") to
+                URLDecoder.decode(it.substring(eq + 1), "UTF-8")
+        }.toMap()
+
+    /** client_id from "Authorization: Basic", for clients that send it that way. */
+    private fun basicClientId(request: Request): String? {
+        val header = request.headers["authorization"] ?: return null
+        if (!header.startsWith("Basic ", ignoreCase = true)) return null
+        return try {
+            String(android.util.Base64.decode(header.substring(6).trim(), android.util.Base64.DEFAULT))
+                .substringBefore(':').let { URLDecoder.decode(it, "UTF-8") }
+        } catch (_: Exception) { null }
+    }
+
+    private fun handleAuthorize(request: Request, out: OutputStream, base: String) {
+        when (request.method) {
+            "GET" -> when (val result = auth.startAuthorization(request.query)) {
+                is McpAuth.AuthorizeResult.Page -> page(out, result.id, result.clientName, result.redirectOrigin, null)
+                is McpAuth.AuthorizeResult.Redirect -> respond(out, 302, null, "", mapOf("Location" to result.location))
+                is McpAuth.AuthorizeResult.Fail -> message(out, 400, result.message)
+            }
+            "POST" -> {
+                // The approval form posts to itself; refuse a cross-site post.
+                val origin = request.headers["origin"]
+                if (origin != null && origin != "null" && origin != base) {
+                    respond(out, 403, "text/plain", "origin not allowed")
+                    return
+                }
+                val form = parseForm(request.body)
+                when (val result = auth.approve(form["request"].orEmpty(), form["code"].orEmpty(), form["deny"] != null)) {
+                    is McpAuth.ApproveResult.Redirect -> respond(out, 302, null, "", mapOf("Location" to result.location))
+                    is McpAuth.ApproveResult.Retry -> page(out, result.id, result.clientName, result.redirectOrigin,
+                        appContext.getString(R.string.pair_wrong, result.attemptsLeft))
+                    McpAuth.ApproveResult.Expired -> message(out, 400, appContext.getString(R.string.pair_expired))
+                }
+            }
+            else -> respond(out, 405, "text/plain", "method not allowed", mapOf("Allow" to "GET, POST"))
+        }
+    }
+
+    private fun html(text: String) = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        .replace("\"", "&quot;").replace("'", "&#39;")
+
+    private fun pageHeaders(formTarget: String?) = mapOf(
+        "Content-Security-Policy" to "default-src 'none'; style-src 'unsafe-inline'; " +
+            "form-action 'self'${formTarget?.let { " $it" } ?: ""}; frame-ancestors 'none'",
+        "X-Frame-Options" to "DENY",
+        "Referrer-Policy" to "no-referrer",
+    )
+
+    private fun shell(title: String, inner: String) = """
+        <!doctype html><html lang="${appContext.getString(R.string.ui_language)}"><head><meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1"><title>${html(title)}</title>
+        <style>
+        body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#1c1c1c;color:#eee;font:16px/1.5 system-ui,sans-serif}
+        main{width:min(360px,90vw);text-align:center}
+        h1{font-size:20px;margin:0 0 8px}
+        p{color:#bbb;margin:0 0 16px}
+        .client{color:#fff;font-weight:600}
+        input{width:100%;box-sizing:border-box;font-size:32px;letter-spacing:8px;text-align:center;padding:10px;border-radius:12px;border:1px solid #555;background:#111;color:#fff}
+        .row{display:flex;gap:10px;margin-top:16px}
+        button{flex:1;font-size:16px;padding:12px;border-radius:12px;border:0;cursor:pointer}
+        .ok{background:#4cc2ff;color:#000;font-weight:600}.no{background:#333;color:#ddd}
+        .err{color:#ff8a7a}
+        .dest{color:#8fd6ff;font-size:14px}
+        </style></head><body><main>$inner</main></body></html>
+    """.trimIndent()
+
+    /** The approval page: type the code shown on the Echo Spot. */
+    private fun page(out: OutputStream, id: String, clientName: String, redirectOrigin: String, error: String?) {
+        val title = appContext.getString(R.string.pair_title)
+        val inner = """
+            <h1>${html(title)}</h1>
+            <p><span class="client">${html(clientName)}</span>
+              <br><span class="dest">→ ${html(redirectOrigin.substringAfter("://"))}</span>
+              <br>${html(appContext.getString(R.string.pair_prompt))}</p>
+            ${error?.let { "<p class=\"err\">${html(it)}</p>" } ?: ""}
+            <form method="post" action="/authorize">
+              <input type="hidden" name="request" value="${html(id)}">
+              <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" autofocus required>
+              <div class="row">
+                <button class="no" name="deny" value="1" formnovalidate>${html(appContext.getString(R.string.pair_deny))}</button>
+                <button class="ok" type="submit">${html(appContext.getString(R.string.pair_allow))}</button>
+              </div>
+            </form>
+        """.trimIndent()
+        respond(out, 200, "text/html; charset=utf-8", shell(title, inner), pageHeaders(redirectOrigin))
+    }
+
+    private fun message(out: OutputStream, status: Int, text: String) {
+        val title = appContext.getString(R.string.pair_title)
+        respond(out, status, "text/html; charset=utf-8", shell(title, "<h1>${html(title)}</h1><p>${html(text)}</p>"),
+            pageHeaders(null))
     }
 
     // -------------------------------------------------------------- JSON-RPC

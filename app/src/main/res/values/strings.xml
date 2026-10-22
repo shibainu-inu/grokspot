@@ -19,4 +19,11 @@
         <item>Use only the states listed as candidates for the function\'s state parameter.</item>
     </string-array>
     <string name="avatar_function_description">Changes the expression of the avatar on the screen. It is not spoken. Use it only when you want to convey a nuance.</string>
+    <!-- MCP approval page (OAuth pairing), opened in the user's browser. -->
+    <string name="pair_title">Connect to GrokSpot</string>
+    <string name="pair_prompt">wants to change the face on your Echo Spot. Enter the 6-digit code shown on the Echo Spot screen.</string>
+    <string name="pair_allow">Allow</string>
+    <string name="pair_deny">Deny</string>
+    <string name="pair_wrong">That code is not right. %1$d tries left.</string>
+    <string name="pair_expired">This request has expired or was already used. Connect again from Grok.</string>
 </resources>

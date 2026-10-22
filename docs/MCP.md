@@ -3,7 +3,7 @@
 スマホや PC で使っている自分の GrokBot から、Echo Spot の顔を動かせるようにする仕組みです。GrokSpot は [MCP](https://modelcontextprotocol.io/)（Model Context Protocol）のサーバーを内蔵し、ツール `set_avatar_state` を 1 つ公開しています。
 
 - 元の仕様：「GrokSpot × GrokBot アバター出力インターフェース 仕様（実装担当向け）」2026-10-22（Grok 著）
-- 実装：`app/src/main/java/com/grokbot/grokspot/McpServer.kt`（サーバー）、`app/src/main/assets/web/external.js`（顔への反映）
+- 実装：`app/src/main/java/com/grokbot/grokspot/McpServer.kt`（サーバー）、`McpAuth.kt`（OAuth）、`app/src/main/assets/web/external.js`（顔への反映）、`pairing.js`（確認コードの表示）
 
 ## 概要
 
@@ -14,7 +14,7 @@
 | ポート | 8765（固定。`McpServer.PORT`） |
 | 起動 | アプリの起動と同時に自動で立ち上がる。ボタンの会話（Grok Voice）とは独立して動く |
 | ツール | `set_avatar_state(state)` の 1 つ |
-| 認証 | 既定はなし（LAN 内向け）。トークンを設定すると必須になる（後述） |
+| 認証 | 常に必要。OAuth 2.1（Echo Spot の画面に出る確認コードで許可）か、端末のトークン（後述） |
 | 対応プロトコル版 | 2025-11-25 / 2025-06-18 / 2025-03-26 / 2024-11-05 |
 
 ### ツールの定義
@@ -62,7 +62,7 @@ MCP から送られた状態を表示するときは、毎回 1 回だけ強調�
 
 ## 動作確認（PC から）
 
-USB（adb）でつないだ Echo Spot に、PC から送れます。スクリプトが adb の転送（PC の 8765 → 端末の 8765）を自動で設定します。
+USB（adb）でつないだ Echo Spot に、PC から送れます。スクリプトが adb の転送（PC の 8765 → 端末の 8765）を設定し、認証のトークンも adb で端末から読んで使います。
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\mcp-call.ps1 -List     # ツールの一覧
@@ -75,17 +75,19 @@ powershell -ExecutionPolicy Bypass -File scripts\mcp-call.ps1 curious   # 顔を
 powershell -ExecutionPolicy Bypass -File scripts\mcp-call.ps1 happy -Url http://<Echo Spot の IP>:8765/mcp
 ```
 
-curl の場合：
+curl などで送るときは、トークンを付けます（`scripts\set-mcp-token.ps1 -Show` で表示できます）。
 
 ```bash
 curl -X POST http://<Echo Spot の IP>:8765/mcp -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <トークン>" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"set_avatar_state","arguments":{"state":"happy"}}}'
 ```
 
-公式の [MCP Inspector](https://github.com/modelcontextprotocol/inspector) でも確認できます。
+公式の [MCP Inspector](https://github.com/modelcontextprotocol/inspector) でも確認できます（ブラウザ版の Inspector なら、OAuth の流れもそのまま試せます）。
 
 ```bash
-npx @modelcontextprotocol/inspector --cli http://127.0.0.1:8765/mcp --transport http --method tools/list
+npx @modelcontextprotocol/inspector --cli http://127.0.0.1:8765/mcp --transport http \
+  --header "Authorization: Bearer <トークン>" --method tools/list
 ```
 
 ### ネットワークの注意
@@ -96,17 +98,9 @@ npx @modelcontextprotocol/inspector --cli http://127.0.0.1:8765/mcp --transport 
 
 ## GrokBot（公式の Grok）に登録する
 
-Grok のカスタムコネクタは、**インターネットから届く URL** しか登録できません（`localhost` や LAN のアドレスは受け付けません）。そのため、トンネルで公開用の URL を作ります（[xAI のドキュメント](https://docs.x.ai/grok/connectors)）。
+Grok のカスタムコネクタは、**インターネットから届く URL** しか登録できません（`localhost` や LAN のアドレスは受け付けません）。そのため、自分のトンネルで公開用の URL を作ります（[xAI のドキュメント](https://docs.x.ai/grok/connectors)）。登録画面には URL の欄しかなく、認証は OAuth で進めます。
 
-> **公開する前に、必ずトークンを設定してください。** トークンなしで公開すると、URL を知っている誰でも顔を変えられます。
-
-1. **トークンを設定する**（端末に保存され、すぐに有効になります。表示されたトークンは控えておいてください）
-
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File scripts\set-mcp-token.ps1
-   ```
-
-2. **トンネルを立てる**。おすすめは [ngrok](https://ngrok.com/) です（無料アカウントで固定の URL が 1 つもらえ、HTTPS の 443 番ポートだけでつながるので、制限の厳しいネットワークでも使えます）。
+1. **トンネルを立てる**。おすすめは [ngrok](https://ngrok.com/) です（無料アカウントで固定の URL が 1 つもらえ、HTTPS の 443 番ポートだけでつながるので、制限の厳しいネットワークでも使えます）。
 
    ```powershell
    winget install --id Ngrok.Ngrok -e
@@ -124,26 +118,58 @@ Grok のカスタムコネクタは、**インターネットから届く URL** 
 
    [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) のクイックトンネル（`cloudflared tunnel --url http://127.0.0.1:8765`）も使えますが、外向きの 7844 番ポートを使うので、会社や学校などのネットワークではつながらないことがあります。また URL が毎回変わります。
 
-3. **Grok に登録する**：[grok.com/connectors](https://grok.com/connectors) → **New Connector** → **Custom** で、次の URL を入れます。認証方式を選ぶ欄があれば「なし」にします（トークンは URL に入っているため）。
+2. **Grok に登録する**：[grok.com/connectors](https://grok.com/connectors) → **New Connector** → **Custom** で、次の URL を入れます（トークンは不要です）。
 
    ```
-   https://<あなたの固定ドメイン>.ngrok-free.dev/mcp?key=<トークン>
+   https://<あなたの固定ドメイン>.ngrok-free.dev/mcp
    ```
 
-   ヘッダーを設定できる画面なら、`Authorization: Bearer <トークン>` を使っても構いません。
+3. **画面のコードで許可する**：許可画面が開き、同時に **Echo Spot の画面に 6 桁のコード** が出ます（画面が消えていれば点きます）。許可画面にそのコードを入力して「許可する」を押します。
+   - 許可画面には、接続を求めているクライアントの名前と、許可後に戻る先のドメインが出ます。心当たりがなければ「拒否する」を押してください。
+   - コードの有効期限は 5 分、入力できるのは 5 回までです。
+   - ngrok の無料ドメインでは、許可画面の前に ngrok の注意画面（「Visit Site」）が一度出ることがあります。そのまま進んでください。
 
 4. Grok との会話で「今の表情を curious にして」と頼んで、顔が変わるか確かめます。
 
+許可は 24 時間ごとに自動で更新され（更新用の鍵は 180 日有効）、つなぎ直す必要はありません。
+
+### OAuth に対応していないクライアントの場合
+
+URL にトークンを付けて登録します。トークンは端末が最初の起動時に作っています。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\set-mcp-token.ps1 -Show
+```
+
+```
+https://<あなたの固定ドメイン>.ngrok-free.dev/mcp?key=<トークン>
+```
+
+ヘッダーを設定できるクライアントなら、`Authorization: Bearer <トークン>` を使います。URL のトークンは、トンネルの記録や画面共有に残りやすいので、OAuth が使えるならそちらを使ってください。
+
+### 許可の取り消し
+
+| 取り消したいもの | 方法 |
+|---|---|
+| OAuth で許可したクライアント全部 | `scripts\set-mcp-token.ps1 -RevokeOAuth`（アプリが再起動します） |
+| URL・ヘッダー用のトークン | `scripts\set-mcp-token.ps1`（作り直すと古いトークンは使えなくなる） |
+
+### トンネルの運用
+
 - ngrok の固定ドメインなら、トンネルを立て直しても URL は変わらず、登録し直す必要はありません。cloudflared のクイックトンネルは毎回 URL が変わるので、そのたびに登録し直します。
 - トンネルを止めると、Grok からは届かなくなります（LAN 内からは引き続き使えます）。PC の起動時に自動で立てたいときは、ngrok を Windows のサービスとして登録します（`ngrok service install`）。
-- トークンをやめるときは `scripts\set-mcp-token.ps1 -Remove`（LAN 内だけで使う場合）。
 
 ## セキュリティ
 
 | 対策 | 内容 |
 |---|---|
-| トークン | `files/mcp_token` があれば、`Authorization: Bearer` か `?key=` が一致しない要求を 401 で拒否する |
-| Origin の拒否 | `Origin` ヘッダー付きの要求（＝ブラウザからの要求）は 403 で拒否する。同じ LAN の Web ページから勝手に呼ばれるのを防ぐ（DNS リバインディング対策） |
+| 認証は常に必要 | 認証のない `/mcp` への要求は 401 で拒否し、OAuth の情報の場所を返す（RFC 9728） |
+| OAuth 2.1 | 認可コード＋PKCE（S256）のみ。クライアントは動的登録（RFC 7591）か、クライアント情報の URL（Client ID Metadata Document）。戻り先は https（か localhost）に限る |
+| 確認コード | 許可には、Echo Spot の画面に出る 6 桁が必要。有効 5 分・5 回まで。目の前に端末がある人しか許可できない |
+| 鍵の保存 | アクセス用の鍵（24 時間）と更新用の鍵（180 日、使うたびに作り直す）は、ハッシュ（SHA-256）だけを端末に保存する |
+| 許可画面 | 他のサイトへの埋め込み禁止（`frame-ancestors 'none'`）、外部の読み込み禁止（CSP）、別サイトからの送信を拒否 |
+| 端末のトークン | 最初の起動時に端末が作る。`Authorization: Bearer` か `?key=` で使える（OAuth に対応していないクライアント用） |
+| Origin の拒否 | `/mcp` への `Origin` ヘッダー付きの要求（＝ブラウザからの要求）は 403 で拒否する。同じ LAN の Web ページから勝手に呼ばれるのを防ぐ（DNS リバインディング対策） |
 | できることの範囲 | 顔の状態を変えることだけ。音声・マイク・端末の操作には触れない |
 
 ## 今後（ロードマップ）
@@ -159,11 +185,11 @@ Grok のカスタムコネクタは、**インターネットから届く URL** 
 
 ## 配布に向けた課題（今後）
 
-今のトンネルは開発用の構成です（PC で ngrok を動かし、USB の adb 転送で Echo Spot に中継し、トークンは URL に入れる）。誰でも安全に使える形にするには、次を検討します。
+今のトンネルは開発用の構成です（PC で ngrok を動かし、USB の adb 転送で Echo Spot に中継する）。誰でも安全に使える形にするには、次を検討します。
 
 | 課題 | 今 | 方向性 |
 |---|---|---|
-| PC が要る | PC で ngrok と adb 転送を動かし続ける | Echo Spot だけで完結させる（アプリにトンネルを組み込む、または端末上でトンネルのエージェントを動かす） |
-| 認証 | URL の `?key=` に固定のトークン | URL はトンネルのログや画面共有に残りやすい。MCP 標準の OAuth 2.1 などに対応する（Grok のコネクタが対応する方式を確かめてから） |
-| 初期設定 | PC のスクリプトでトークンを作り、URL を組み立てる | 端末側でトークンを作り、接続先 URL を画面（QR コードなど）で受け渡す |
+| PC が要る | PC で ngrok と adb 転送を動かし続ける | Echo Spot だけで完結させる（アプリにトンネルを組み込む、または端末上でトンネルのエージェントを動かす）。後回し |
+| 認証 | OAuth 2.1 ＋画面の確認コード（実装済み） | Grok の実際のコネクタで OAuth が最後まで通るかを確かめる |
+| 初期設定 | URL を登録して画面のコードを入力するだけ（実装済み）。トークンも端末が作る | トンネルを立てる手順をさらに減らす |
 | 中継の運営 | 各自の ngrok アカウント | 共有の中継サーバーは置かない方針（運営が不要で、他人の通信を預からない）。各自が自分のトンネルのアカウントを使う |

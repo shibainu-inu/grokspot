@@ -108,6 +108,29 @@
   body[data-mic="hearing"] #mic-hint { opacity: 1; }
   /* 待機の目印と重ならないよう、ツアーの名札は隠す。 */
   body[data-mic] #label { display: none; }
+  /*
+   * OAuth のペアリングコード（pairing.js）。顔を暗くして、中央に 6 桁を大きく出す。
+   */
+  #pairing {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(18, 18, 18, 0.86);
+    color: #eee;
+    font: 500 16px/1.4 system-ui, sans-serif;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  #pairing.show { opacity: 1; }
+  #pairing .pair-title { color: #8fd6ff; font-weight: 600; }
+  #pairing .pair-client { color: #fff; font-weight: 600; max-width: 300px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #pairing .pair-code { font: 700 64px/1 system-ui, sans-serif; letter-spacing: 6px; margin: 18px 0 14px; color: #fff; }
+  #pairing .pair-hint { color: #aaa; font-size: 15px; max-width: 300px; }
   @keyframes mic-breathe {
     0%, 100% { opacity: 0.25; }
     50% { opacity: 0.8; }
@@ -176,6 +199,12 @@
 <div id="label"></div>
 <div id="mic-ring"></div>
 <div id="mic-hint"></div>
+<div id="pairing" aria-live="polite">
+  <div class="pair-title"></div>
+  <div class="pair-client"></div>
+  <div class="pair-code"></div>
+  <div class="pair-hint"></div>
+</div>
 <script src="i18n.js"></script>
 <script src="grokbot.js"></script>
 <script src="fx.js"></script>
@@ -184,6 +213,7 @@
 <script src="actions.js"></script>
 <script src="voice.js"></script>
 <script src="external.js"></script>
+<script src="pairing.js"></script>
 <script src="touch.js"></script>
 <script>
 (function () {

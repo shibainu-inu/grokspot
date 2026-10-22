@@ -1,30 +1,43 @@
-﻿# GrokSpot の MCP サーバーに認証トークンを設定する（インターネットに公開する前に必須）。
-# トークンを作って端末のアプリ専用領域に書き込み、GrokBot 側に登録する接続先 URL を表示する。
-# 使い方:   powershell -File scripts\set-mcp-token.ps1
-# 解除:     powershell -File scripts\set-mcp-token.ps1 -Remove   （LAN 内だけで使うとき）
+﻿# GrokSpot の MCP サーバーの認証を管理する。
+# 端末は最初の起動時に自分でトークンを作るので、普段は何もしなくてよい
+# （Grok などの MCP クライアントは OAuth と画面のコードでつながる）。
+# 使い方:
+#   powershell -File scripts\set-mcp-token.ps1 -Show     # 今のトークンと、URL 方式の接続先を表示する
+#   powershell -File scripts\set-mcp-token.ps1           # トークンを作り直す（古いトークンの URL は使えなくなる）
+#   powershell -File scripts\set-mcp-token.ps1 -RevokeOAuth  # OAuth で許可したクライアントをすべて取り消す
+# 表示されたトークンは他人に見せないこと（画面共有や会話に貼らない）。
 # 端末を複数つないでいるときは -Serial <adb のシリアル> で選ぶ。
 param(
     [string]$Serial,
-    [switch]$Remove
+    [switch]$Show,
+    [switch]$RevokeOAuth
 )
 $ErrorActionPreference = 'Stop'
 $package = 'com.grokbot.grokspot'
 $target = if ($Serial) { @('-s', $Serial) } else { @() }
 
-if ($Remove) {
-    adb @target shell "run-as $package rm -f files/mcp_token"
-    Write-Host 'MCP のトークンを削除しました（認証なしに戻りました）。'
+function Restart-App {
+    adb @target shell "am force-stop $package; am start -n $package/.MainActivity" | Out-Null
+}
+
+if ($RevokeOAuth) {
+    adb @target shell "run-as $package rm -f files/mcp_oauth.json"
+    Restart-App
+    Write-Host 'OAuth で許可したクライアントをすべて取り消しました。つなぎ直すときは、もう一度画面のコードで許可してください。'
     exit 0
 }
 
-# 32 バイトの乱数を URL に入れても安全な文字だけで表す。
-$bytes = New-Object byte[] 32
-[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-$token = [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
-
-$token | adb @target shell "run-as $package sh -c 'mkdir -p files && cat > files/mcp_token && chmod 600 files/mcp_token'"
-Write-Host 'MCP のトークンを書き込みました。すぐに有効になります。'
+if ($Show) {
+    $token = (adb @target shell "run-as $package cat files/mcp_token").Trim()
+} else {
+    # 32 バイトの乱数を URL に入れても安全な文字だけで表す。
+    $bytes = New-Object byte[] 32
+    [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+    $token = [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+    $token | adb @target shell "run-as $package sh -c 'mkdir -p files && cat > files/mcp_token && chmod 600 files/mcp_token'"
+    Write-Host 'MCP のトークンを作り直しました。すぐに有効になります。'
+}
 Write-Host ''
-Write-Host 'GrokBot などに登録するときは、次のどちらかを使ってください（このトークンは再表示できません）:'
+Write-Host 'OAuth に対応していない MCP クライアントには、次のどちらかを使ってください:'
 Write-Host "  ヘッダー:  Authorization: Bearer $token"
 Write-Host "  URL:       https://<トンネルのホスト名>/mcp?key=$token"

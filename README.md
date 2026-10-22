@@ -64,18 +64,17 @@ powershell -ExecutionPolicy Bypass -File scripts\set-api-key.ps1
 スマホや PC の Grok（grok.com）から顔を動かすには、Echo Spot の MCP サーバーを **自分のトンネル** で公開し、Grok のカスタムコネクタに登録します。共有の中継サーバーは使いません。手順の詳細は [docs/MCP.md](docs/MCP.md) にあります。
 
 ```powershell
-# 1. 認証トークンを作って端末に保存する（公開する前に必須）
-powershell -ExecutionPolicy Bypass -File scripts\set-mcp-token.ps1
-
-# 2. 自分の ngrok アカウントで、固定ドメインのトンネルを立てる（USB でつないだ PC から）
+# 1. 自分の ngrok アカウントで、固定ドメインのトンネルを立てる（USB でつないだ PC から）
 adb forward tcp:8765 tcp:8765
 ngrok http 8765 --url https://<自分の固定ドメイン>.ngrok-free.dev
 
-# 3. grok.com/connectors → New Connector → Custom に、次の URL を登録する
-#    https://<自分の固定ドメイン>.ngrok-free.dev/mcp?key=<1 で表示されたトークン>
+# 2. grok.com/connectors → New Connector → Custom に、次の URL を登録する（トークンは不要）
+#    https://<自分の固定ドメイン>.ngrok-free.dev/mcp
+
+# 3. 開いた許可画面に、Echo Spot の画面に出た 6 桁のコードを入力する
 ```
 
-登録できたら、Grok に「Echo Spot の顔を curious にして」と頼むと、画面の顔が変わります。
+許可できたら、Grok に「Echo Spot の顔を curious にして」と頼むと、画面の顔が変わります。認証は OAuth 2.1 で、目の前に Echo Spot がある人しか許可できません。
 
 ## 構成
 
@@ -84,6 +83,7 @@ app/src/main/java/com/grokbot/grokspot/
   MainActivity.kt        全画面の WebView。ボタンで会話の開始・終了、5 秒長押しで設定を開く抜け道
   VoiceSession.kt        Grok Voice（wss://api.x.ai/v1/realtime）との会話。マイク送信・音声再生・イベント通知
   McpServer.kt           MCP サーバー（Streamable HTTP、ポート 8765）。ツール set_avatar_state
+  McpAuth.kt             MCP の OAuth 2.1（画面の確認コードで許可）
   GrokButtonService.kt   ユーザー補助サービス。ボタン操作（押す・2 回押し・長押し）と、暗い部屋での画面オン・オフ
 app/src/main/assets/web/
   index.html             顔のページ。入力待ちの輪と文字
@@ -94,6 +94,7 @@ app/src/main/assets/web/
   actions.js             「聞く」「考える」などの動作 → 表情の対応表
   voice.js               会話のイベント → 表情（仕様は docs/AVATAR-STATE-SPEC.md）
   external.js            MCP から届いた状態 → 表情
+  pairing.js             OAuth の確認コードを画面に出す
   life.js                待機中の暮らし（元気の値、昼と夜）
   touch.js               タッチの位置ごとの反応
 device/
@@ -101,7 +102,7 @@ device/
 scripts/
   build-web.ps1          描画ライブラリを改造したときに grokbot.js を作り直す（通常は不要）
   set-api-key.ps1        API キーを端末のアプリ専用領域に書き込む
-  set-mcp-token.ps1      MCP サーバーの認証トークンを設定する（公開する前に必須）
+  set-mcp-token.ps1      MCP の認証の管理（トークンの表示・作り直し、OAuth の許可の取り消し）
   mcp-call.ps1           PC から MCP サーバーを呼んで動作を確かめる
 docs/
   SETUP.md               端末の準備からインストールまでの詳しい手順

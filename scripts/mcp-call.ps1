@@ -3,7 +3,7 @@
 #   powershell -File scripts\mcp-call.ps1 curious                 # adb の転送で、つないだ Echo Spot に送る
 #   powershell -File scripts\mcp-call.ps1 happy -Url http://10.0.0.5:8765/mcp   # LAN 内の IP に送る
 #   powershell -File scripts\mcp-call.ps1 -List                   # ツールの一覧を見る
-# トークンを設定してあるときは -Token <トークン> を付ける。
+# 認証のトークンは、指定しなければ adb で端末から読む（-Token で直接指定もできる）。
 param(
     [Parameter(Position = 0)][string]$State,
     [string]$Url,
@@ -18,6 +18,10 @@ if (-not $Url) {
     $target = if ($Serial) { @('-s', $Serial) } else { @() }
     adb @target forward tcp:8765 tcp:8765 | Out-Null
     $Url = 'http://127.0.0.1:8765/mcp'
+}
+if (-not $Token) {
+    $target = if ($Serial) { @('-s', $Serial) } else { @() }
+    $Token = (adb @target shell "run-as com.grokbot.grokspot cat files/mcp_token").Trim()
 }
 $headers = @{ Accept = 'application/json, text/event-stream' }
 if ($Token) { $headers.Authorization = "Bearer $Token" }

@@ -13,14 +13,23 @@
     en: {
       'mic.waiting': 'Talk to me',
       'mic.hearing': 'Listening…',
+      'pair.title': 'Connection request',
+      'pair.hint': 'Enter this code on the approval page',
+      'pair.done': 'Connected',
     },
     ja: {
       'mic.waiting': '話しかけてください',
       'mic.hearing': '聞いています…',
+      'pair.title': '接続の確認',
+      'pair.hint': '許可画面にこのコードを入力してください',
+      'pair.done': '接続しました',
     },
     zh: {
       'mic.waiting': '请跟我说话',
       'mic.hearing': '正在听…',
+      'pair.title': '连接确认',
+      'pair.hint': '请在授权页面输入此代码',
+      'pair.done': '已连接',
     },
   };
   var HTML_LANG = { en: 'en', ja: 'ja', zh: 'zh-Hans' };

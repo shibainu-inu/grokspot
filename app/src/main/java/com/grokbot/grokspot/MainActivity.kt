@@ -36,6 +36,16 @@ class MainActivity : ComponentActivity() {
     private val mcpState: (String) -> Unit = { state ->
         runOnUiThread { callPage("grokspot.external.state(${JSONObject.quote(state)})") }
     }
+    /** The OAuth pairing code (McpAuth) shown on the face page until it is used or expires. */
+    private val mcpPairing: (McpAuth.PairingEvent) -> Unit = { event ->
+        val script = when (event) {
+            is McpAuth.PairingEvent.Show ->
+                "grokspot.pairing.show(${JSONObject.quote(event.code)}, ${JSONObject.quote(event.client)}, ${event.expiresInMs})"
+            is McpAuth.PairingEvent.Approved -> "grokspot.pairing.done(${JSONObject.quote(event.client)})"
+            McpAuth.PairingEvent.Hide -> "grokspot.pairing.hide()"
+        }
+        runOnUiThread { callPage(script) }
+    }
     private val handler = Handler(Looper.getMainLooper())
     private val openSettings = Runnable { openSystemSettings() }
     private var holdX = 0f
@@ -108,6 +118,7 @@ class MainActivity : ComponentActivity() {
 
         // MCP: lets an agent elsewhere (the user's GrokBot) set the face, alongside Grok Voice.
         McpServer.onState = mcpState
+        McpServer.onPairing = mcpPairing
         McpServer.start(applicationContext)
     }
 
@@ -216,6 +227,7 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         // A recreated activity (e.g. after a language change) may already have taken over.
         if (McpServer.onState === mcpState) McpServer.onState = null
+        if (McpServer.onPairing === mcpPairing) McpServer.onPairing = null
         webView.destroy()
         super.onDestroy()
     }
