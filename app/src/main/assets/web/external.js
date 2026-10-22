@@ -13,8 +13,8 @@
 //   this face: the head pops and blinks (motion.emphasize) and the screen edge
 //   lights up once, in the same style as the mic ring.
 // - A caption goes with the state, in the same place and style as the mic hint
-//   ("話しかけてください"): an emoji or a short word, the agent's own or by default
-//   (an emoji for a feeling, a word for an action). It goes away with the state.
+//   ("話しかけてください"): the state's own emoji (feelings) or word (actions); the
+//   agent does not choose it. It goes away with the state.
 // - notifying and alerting also leave an unread mark (📩 / ❗) at the bottom of
 //   the screen after they end, so a notice is not missed when nobody was
 //   looking. A touch on the screen or an idle from the agent clears it.
@@ -116,19 +116,18 @@
   }
 
   /**
-   * Shows `name` from an external agent. caption: text, "" for none, or
-   * null for the default. holdMs: how long before the idle life returns.
-   * Returns false for an unknown state.
+   * Shows `name` from an external agent, with the state's own caption.
+   * holdMs: how long before the idle life returns. Returns false for an unknown state.
    */
-  function state(name, caption, holdMs) {
+  function state(name, holdMs) {
     if (!window.isBotState(name)) {
       console.warn('external: ignoring unknown state ' + name);
       return false;
     }
-    console.info('external: ' + name + (caption ? ' "' + caption + '"' : ''));
+    console.info('external: ' + name);
     clearTimeout(hold);
     hold = null;
-    var text = caption === null || caption === undefined ? defaultCaption(name) : caption;
+    var text = defaultCaption(name);
     var ms = Math.min(holdMs || HOLD_MS, MAX_HOLD_MS);
 
     if (talking()) {

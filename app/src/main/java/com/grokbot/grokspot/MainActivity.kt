@@ -34,9 +34,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var webView: WebView
     private lateinit var voice: VoiceSession
     private val mcpState: (McpServer.ExternalState) -> Unit = { s ->
-        val caption = s.caption?.let(JSONObject::quote) ?: "null"
         val duration = s.durationSec?.let { (it * 1000).toLong().toString() } ?: "null"
-        runOnUiThread { callPage("grokspot.external.state(${JSONObject.quote(s.state)}, $caption, $duration)") }
+        runOnUiThread { callPage("grokspot.external.state(${JSONObject.quote(s.state)}, $duration)") }
     }
     private val mcpQuery: (String, (String?) -> Unit) -> Unit = { script, reply ->
         runOnUiThread { webView.evaluateJavascript(script) { reply(it) } }

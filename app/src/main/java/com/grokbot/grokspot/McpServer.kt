@@ -49,11 +49,13 @@ object McpServer {
         "confused", "surprised", "sad", "angry", "celebrate", "bored", "alerting", "notifying",
     )
 
-    private const val CAPTION_MAX = 8
     private const val MAX_DURATION_SEC = 600
 
-    /** A state from set_avatar_state: caption null = the state's default, "" = none. */
-    data class ExternalState(val state: String, val caption: String?, val durationSec: Double?)
+    /**
+     * A state from set_avatar_state. The caption under the face is always the state's own default
+     * (external.js): when the model could write it, it summarised each reply instead.
+     */
+    data class ExternalState(val state: String, val durationSec: Double?)
 
     /** Shows a state on the page; set by MainActivity while it exists. Called on a worker thread. */
     @Volatile var onState: ((ExternalState) -> Unit)? = null
@@ -526,11 +528,6 @@ object McpServer {
                     .put("type", "string")
                     .put("description", "表示する状態名 / the state to show")
                     .put("enum", JSONArray(STATES)))
-                .put("caption", JSONObject()
-                    .put("type", "string")
-                    .put("description", "Optional: one emoji or a short word shown under the face, up to $CAPTION_MAX characters " +
-                        "(e.g. \"🎉\", \"検索中\", \"要確認\"). Not a sentence. Omit it for a default (an emoji " +
-                        "for feelings, a word for actions); pass \"\" for none. It disappears when the state does."))
                 .put("duration_sec", JSONObject()
                     .put("type", "number")
                     .put("minimum", 1).put("maximum", MAX_DURATION_SEC)
@@ -566,11 +563,10 @@ object McpServer {
         val state = args.optString("state")
         // Unknown states are ignored, as voice.js does: still a success, just not applied.
         val applied = state in STATES
-        val caption = if (args.has("caption") && !args.isNull("caption")) shorten(args.optString("caption")) else null
         val duration = if (args.has("duration_sec")) args.optDouble("duration_sec").takeIf { !it.isNaN() }
             ?.coerceIn(1.0, MAX_DURATION_SEC.toDouble()) else null
         Log.i(TAG, "set_avatar_state($state)${if (applied) "" else " ignored"}")
-        if (applied) onState?.invoke(ExternalState(state, caption, duration ?: BASE_SECONDS[state]?.toDouble()))
+        if (applied) onState?.invoke(ExternalState(state, duration ?: BASE_SECONDS[state]?.toDouble()))
         val outcome = JSONObject().put("ok", true).put("applied", applied)
             .put("viewer_connected", viewerConnected())
         val note = if (applied) KEEP_GOING
@@ -605,18 +601,6 @@ object McpServer {
         return result(id, result.put("content", content).put("structuredContent", status).put("isError", false))
     }
 
-    private fun toolResult(id: Any, outcome: JSONObject) = result(id, JSONObject()
-        .put("content", JSONArray().put(JSONObject().put("type", "text").put("text", outcome.toString())))
-        .put("structuredContent", outcome)
-        .put("isError", false))
-
-    /** Trims a caption to CAPTION_MAX characters (code points), dropping control characters. */
-    private fun shorten(text: String): String {
-        val clean = text.filter { !it.isISOControl() }.trim()
-        val points = clean.codePointCount(0, clean.length)
-        if (points <= CAPTION_MAX) return clean
-        return clean.substring(0, clean.offsetByCodePoints(0, CAPTION_MAX - 1)) + "…"
-    }
 
     private fun viewerConnected(): Boolean {
         val power = appContext.getSystemService(android.os.PowerManager::class.java)
