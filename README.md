@@ -38,10 +38,12 @@ LineageOS を入れた Echo Spot の上で動き、xAI の Grok Voice API と音
 ## 必要なもの
 
 - **Echo Spot（第1世代、2017年）** に **LineageOS 18.1（Android 11）** を入れたもの。
-  非公式の移植版を使っています。**LineageOS の入れ方はこのリポジトリでは扱いません。** 端末の書き換えは元に戻せない場合があり、自己責任で行ってください。この README は、すでに LineageOS が入った端末に対して、アプリのビルドとインストール以降を扱うものです。入れ方の参考先（非公式）：
-  - アンロックと TWRP：[XDA - [UNLOCK][ROOT][TWRP][UNBRICK] Amazon Echo Spot 2017 (rook)](https://xdaforums.com/t/unlock-root-twrp-unbrick-amazon-echo-spot-2017-rook.4754878/)
-  - LineageOS 18.1 の ROM：[XDA - [ROM][UNOFFICIAL][11][rook] LineageOS 18.1 for the Amazon Echo Spot (2017)](https://xdaforums.com/t/rom-unofficial-11-rook-lineageos-18-1-for-the-amazon-echo-spot-2017.4762459/)
-  - ビルドのダウンロード：[amazon-oss/releases](https://github.com/amazon-oss/releases/releases)（Echo Spot 用は `lineage-18.1-rook-*`）
+  非公式の移植版を使っています。**LineageOS の入れ方はこのリポジトリでは扱いません。** 端末の書き換えは元に戻せない場合があり、自己責任で行ってください。本READMEは、すでに LineageOS が入った端末に対して、アプリのビルドとインストール以降を扱うものです。
+
+  入れ方の参考先（非公式）：
+  - アンロックと TWRP：[XDA - UNLOCK/ROOT/TWRP for Echo Spot 2017 (rook)](https://xdaforums.com/t/unlock-root-twrp-unbrick-amazon-echo-spot-2017-rook.4754878/)
+  - LineageOS 18.1 のROM：[XDA - LineageOS 18.1 for the Amazon Echo Spot (2017)](https://xdaforums.com/t/rom-unofficial-11-rook-lineageos-18-1-for-the-amazon-echo-spot-2017.4762459/)
+  - ビルドのダウンロード：[amazon-oss/releases](https://github.com/amazon-oss/releases/releases/tag/lineage-18.1-rook-v0.3)
 - Windows PC（スクリプトは PowerShell 用。Android のビルド自体は macOS / Linux でも可能）
   - Android Studio（同梱の JDK と Android SDK を使用）
   - Node.js（顔の描画ライブラリのビルド用）
@@ -64,9 +66,9 @@ powershell -ExecutionPolicy Bypass -File scripts\set-api-key.ps1
 
 ### 自分の GrokBot から顔を動かす（任意）
 
-スマホや PC の Grok（grok.com）から顔を動かすこともできます。Echo Spot の MCP サーバーを **自分のトンネル**（ngrok など）で公開し、Grok のカスタムコネクタに登録します。共有の中継サーバーは使いません。
+スマホや PC の Grok（grok.com）から顔を動かすこともできます。Echo Spot の MCP サーバーを自分のトンネル（ngrok など）で公開し、Grok のカスタムコネクタに登録します。共有の中継サーバーは使いません。
 
-手順の詳細（トンネルの立て方、コネクタの登録、6 桁のコードによる許可、Grok 側に入れる指示文など）は [docs/MCP.md](docs/MCP.md) にあります。
+手順の詳細（トンネルの立て方、コネクタ登録、6桁コードによる許可、Grok側の指示文など）は [docs/MCP.md](docs/MCP.md) にあります。
 
 許可できたら、Grok に「Echo Spot の顔を curious にして」と頼むと画面の顔が変わります。認証は OAuth 2.1 で、目の前に Echo Spot がある人しか許可できません。
 
