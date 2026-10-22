@@ -32,7 +32,7 @@
   var EMOJI = {
     happy: '❤️', excited: '✨', celebrate: '🎉', curious: '👀', confused: '❓',
     surprised: '⁉️', sad: '💧', angry: '💢', bored: '💤',
-    thinking: '💭', working: '🔧', searching: '🔍', listening: '👂',
+    thinking: '💭', working: '📝', searching: '🔍', listening: '👂',
     alerting: '❗', notifying: '📩',
   };
 
