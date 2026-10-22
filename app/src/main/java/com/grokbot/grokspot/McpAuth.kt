@@ -15,9 +15,11 @@ import java.security.SecureRandom
  * connect with only the server URL: it discovers this authorization server,
  * registers itself, and sends the user to [authorize] to approve.
  *
- * Approval is a pairing code: the Echo Spot shows six digits and the person in
- * front of it types them into the approval page. Only someone who can see the
- * device can connect a client.
+ * Approval is a pairing code made on the spot: a request only shows "touch to
+ * accept" on the Echo Spot; touching the screen makes six digits, which the person
+ * types into the approval page. Only someone in front of the device can connect
+ * a client, and there is no code to guess until they touch it. Registrations and
+ * requests are rate limited.
  *
  * - Metadata: RFC 9728 (protected resource), RFC 8414 (authorization server)
  * - Clients: dynamic registration (RFC 7591), or an HTTPS client_id that is a
@@ -30,6 +32,9 @@ class McpAuth(private val filesDir: File, private val pairing: (PairingEvent) ->
 
     /** What the screen should show about a pending approval. */
     sealed class PairingEvent {
+        /** A client asks to connect: ask the person to touch the screen to accept (no code yet). */
+        data class Request(val client: String, val expiresInMs: Long) : PairingEvent()
+        /** The person touched the screen: show the code to type into the approval page. */
         data class Show(val code: String, val client: String, val expiresInMs: Long) : PairingEvent()
         data class Approved(val client: String) : PairingEvent()
         object Hide : PairingEvent()
@@ -37,14 +42,17 @@ class McpAuth(private val filesDir: File, private val pairing: (PairingEvent) ->
 
     private class Pending(
         val id: String, val clientId: String, val clientName: String, val redirectUri: String,
-        val challenge: String, val state: String?, val scope: String?, val code: String,
-        val expires: Long, var attempts: Int = 0,
+        val challenge: String, val state: String?, val scope: String?,
+        /** Made only when the person touches the Echo Spot, so there is nothing to guess before. */
+        var code: String?, var expires: Long, var attempts: Int = 0,
     )
 
     private class Grant(val clientId: String, val redirectUri: String, val challenge: String,
                         val scope: String?, val expires: Long)
 
     private val random = SecureRandom()
+    private val registrations = mutableListOf<Long>()
+    private val requests = mutableListOf<Long>()
     private val pending = LinkedHashMap<String, Pending>()
     private val grants = HashMap<String, Grant>()
     private val storeFile = File(filesDir, STORE_FILE)
@@ -74,9 +82,20 @@ class McpAuth(private val filesDir: File, private val pairing: (PairingEvent) ->
 
     // ---------------------------------------------------------- registration
 
-    /** Dynamic client registration. Returns the response JSON, or an OAuth error. */
+    /**
+     * Dynamic client registration. Returns the response JSON, or an OAuth error.
+     * Anyone who knows the URL can register, so registrations are rate limited, and a
+     * client that never gets approved is forgotten after UNAPPROVED_TTL_MS. Approved
+     * clients are never pushed out by new ones.
+     */
     @Synchronized
     fun register(body: JSONObject): Pair<Int, JSONObject> {
+        val now = System.currentTimeMillis()
+        registrations.removeAll { now - it > REGISTER_WINDOW_MS }
+        if (registrations.size >= MAX_REGISTRATIONS) {
+            Log.w(TAG, "Too many client registrations")
+            return 429 to oauthError("temporarily_unavailable", "too many registrations, try again later")
+        }
         val uris = body.optJSONArray("redirect_uris")
             ?: return 400 to oauthError("invalid_redirect_uri", "redirect_uris is required")
         val list = (0 until uris.length()).map { uris.getString(it) }
@@ -86,9 +105,13 @@ class McpAuth(private val filesDir: File, private val pairing: (PairingEvent) ->
         val name = body.optString("client_name").take(80).ifEmpty { "MCP client" }
         val id = "gs_" + randomToken(18)
         val clients = store.getJSONObject("clients")
+        pruneClients(clients)
+        if (unapprovedCount(clients) >= MAX_UNAPPROVED) {
+            return 429 to oauthError("temporarily_unavailable", "too many pending clients, try again later")
+        }
+        registrations += now
         clients.put(id, JSONObject().put("redirect_uris", JSONArray(list)).put("name", name)
-            .put("created", System.currentTimeMillis()))
-        trimClients(clients)
+            .put("created", now).put("approved", false))
         save()
         Log.i(TAG, "Registered OAuth client \"$name\"")
         return 201 to JSONObject()
@@ -101,11 +124,25 @@ class McpAuth(private val filesDir: File, private val pairing: (PairingEvent) ->
             .put("token_endpoint_auth_method", "none")
     }
 
-    private fun trimClients(clients: JSONObject) {
-        val ids = clients.keys().asSequence().toList()
-        if (ids.size <= MAX_CLIENTS) return
-        ids.sortedBy { clients.getJSONObject(it).optLong("created") }
-            .take(ids.size - MAX_CLIENTS).forEach { clients.remove(it) }
+    /** Forgets clients that were registered but never approved within UNAPPROVED_TTL_MS. */
+    private fun pruneClients(clients: JSONObject) {
+        val now = System.currentTimeMillis()
+        clients.keys().asSequence().toList().forEach { id ->
+            val c = clients.getJSONObject(id)
+            // Clients stored before "approved" existed were approved (they have tokens).
+            if (c.has("approved") && !c.optBoolean("approved") && now - c.optLong("created") > UNAPPROVED_TTL_MS) {
+                clients.remove(id)
+            }
+        }
+    }
+
+    private fun unapprovedCount(clients: JSONObject) =
+        clients.keys().asSequence().count { clients.getJSONObject(it).let { c -> c.has("approved") && !c.optBoolean("approved") } }
+
+    /** Marks a client approved once it gets its first tokens. */
+    private fun markApproved(clientId: String) {
+        val c = store.getJSONObject("clients").optJSONObject(clientId) ?: return
+        c.put("approved", true)
     }
 
     /** The redirect URIs and name of a client: registered here, or a metadata document URL. */
@@ -168,6 +205,8 @@ class McpAuth(private val filesDir: File, private val pairing: (PairingEvent) ->
         data class Redirect(val location: String) : AuthorizeResult()
         /** A problem the browser should see (the client cannot be trusted with a redirect). */
         data class Fail(val message: String) : AuthorizeResult()
+        /** Too many requests lately; try again later. */
+        object Busy : AuthorizeResult()
     }
 
     /** GET /authorize: checks the request and starts a pairing. */
@@ -182,23 +221,47 @@ class McpAuth(private val filesDir: File, private val pairing: (PairingEvent) ->
         if (challenge.isNullOrEmpty() || query["code_challenge_method"] != "S256") {
             return AuthorizeResult.Redirect(errorRedirect(redirect, "invalid_request", state, "PKCE S256 is required"))
         }
-        val code = (0 until 6).map { random.nextInt(10) }.joinToString("")
+        val now = System.currentTimeMillis()
         val request = Pending(randomToken(16), clientId, name, redirect, challenge, state, query["scope"],
-            code, System.currentTimeMillis() + PAIRING_TTL_MS)
+            null, now + PAIRING_TTL_MS)
         synchronized(this) {
-            pending.values.removeAll { it.expires < System.currentTimeMillis() }
-            // Only the newest approval is shown on the screen.
+            requests.removeAll { now - it > REQUEST_WINDOW_MS }
+            if (requests.size >= MAX_REQUESTS) {
+                Log.w(TAG, "Too many connection requests")
+                return AuthorizeResult.Busy
+            }
+            requests += now
+            // Only the newest request is shown on the screen.
             pending.clear()
             pending[request.id] = request
         }
-        Log.i(TAG, "Pairing started for \"$name\"")
-        pairing(PairingEvent.Show(code, name, PAIRING_TTL_MS))
+        Log.i(TAG, "Connection request from \"$name\"")
+        pairing(PairingEvent.Request(name, PAIRING_TTL_MS))
         return AuthorizeResult.Page(request.id, name, URL(redirect).let { "${it.protocol}://${it.authority}" })
+    }
+
+    /**
+     * The person touched the Echo Spot's screen: if a connection request is waiting,
+     * make its code now and show it. Returns true if a code was made.
+     */
+    fun accept(): Boolean {
+        val now = System.currentTimeMillis()
+        val request = synchronized(this) {
+            pending.values.lastOrNull()?.takeIf { it.code == null && it.expires > now }?.also {
+                it.code = (0 until 6).map { random.nextInt(10) }.joinToString("")
+                it.expires = now + PAIRING_TTL_MS
+            }
+        } ?: return false
+        Log.i(TAG, "Pairing accepted on the screen for \"${request.clientName}\"")
+        pairing(PairingEvent.Show(request.code!!, request.clientName, PAIRING_TTL_MS))
+        return true
     }
 
     sealed class ApproveResult {
         data class Redirect(val location: String) : ApproveResult()
-        data class Retry(val id: String, val clientName: String, val redirectOrigin: String, val attemptsLeft: Int) : ApproveResult()
+        /** Wrong code (attemptsLeft), or the screen was not touched yet (notAccepted). */
+        data class Retry(val id: String, val clientName: String, val redirectOrigin: String, val attemptsLeft: Int,
+                         val notAccepted: Boolean = false) : ApproveResult()
         object Expired : ApproveResult()
     }
 
@@ -213,8 +276,11 @@ class McpAuth(private val filesDir: File, private val pairing: (PairingEvent) ->
             finishPairing(request)
             return ApproveResult.Redirect(errorRedirect(request.redirectUri, "access_denied", request.state))
         }
+        val code = request.code
+            ?: return ApproveResult.Retry(id, request.clientName, URL(request.redirectUri).let { "${it.protocol}://${it.authority}" },
+                MAX_ATTEMPTS - request.attempts, notAccepted = true)
         val digits = typed.filter(Char::isDigit)
-        if (!MessageDigest.isEqual(digits.toByteArray(), request.code.toByteArray())) {
+        if (!MessageDigest.isEqual(digits.toByteArray(), code.toByteArray())) {
             request.attempts += 1
             val left = MAX_ATTEMPTS - request.attempts
             if (left <= 0) {
@@ -224,16 +290,16 @@ class McpAuth(private val filesDir: File, private val pairing: (PairingEvent) ->
             return ApproveResult.Retry(id, request.clientName, URL(request.redirectUri).let { "${it.protocol}://${it.authority}" }, left)
         }
         finishPairing(request)
-        val code = randomToken(24)
+        val grant = randomToken(24)
         synchronized(this) {
             grants.values.removeAll { it.expires < System.currentTimeMillis() }
-            grants[code] = Grant(request.clientId, request.redirectUri, request.challenge, request.scope,
+            grants[grant] = Grant(request.clientId, request.redirectUri, request.challenge, request.scope,
                 System.currentTimeMillis() + CODE_TTL_MS)
         }
         Log.i(TAG, "Pairing approved for \"${request.clientName}\"")
         pairing(PairingEvent.Approved(request.clientName))
         val sep = if ('?' in request.redirectUri) '&' else '?'
-        return ApproveResult.Redirect(request.redirectUri + sep + "code=" + enc(code) +
+        return ApproveResult.Redirect(request.redirectUri + sep + "code=" + enc(grant) +
             (request.state?.let { "&state=" + enc(it) } ?: ""))
     }
 
@@ -276,6 +342,7 @@ class McpAuth(private val filesDir: File, private val pairing: (PairingEvent) ->
         val access = randomToken(32)
         val refresh = randomToken(32)
         val now = System.currentTimeMillis()
+        markApproved(clientId)
         val tokens = store.getJSONArray("tokens")
         tokens.put(tokenEntry(access, "access", clientId, scope, now + ACCESS_TTL_MS))
         tokens.put(tokenEntry(refresh, "refresh", clientId, scope, now + REFRESH_TTL_MS))
@@ -389,7 +456,13 @@ class McpAuth(private val filesDir: File, private val pairing: (PairingEvent) ->
         private const val ACCESS_TTL_MS = 24 * 60 * 60 * 1000L
         private const val REFRESH_TTL_MS = 180L * 24 * 60 * 60 * 1000L
         private const val MAX_ATTEMPTS = 5
-        private const val MAX_CLIENTS = 20
+        // Rate limits for what anyone with the URL can do.
+        private const val MAX_REGISTRATIONS = 5
+        private const val REGISTER_WINDOW_MS = 10 * 60 * 1000L
+        private const val MAX_UNAPPROVED = 10
+        private const val UNAPPROVED_TTL_MS = 60 * 60 * 1000L
+        private const val MAX_REQUESTS = 5
+        private const val REQUEST_WINDOW_MS = 10 * 60 * 1000L
         private const val MAX_TOKENS = 200
     }
 }

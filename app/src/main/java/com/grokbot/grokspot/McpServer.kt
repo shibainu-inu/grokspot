@@ -23,10 +23,11 @@ import java.util.concurrent.Executors
  * - Endpoint: POST http://<device>:[PORT]/mcp with JSON-RPC 2.0 messages; the
  *   reply is plain JSON (no SSE stream, so GET /mcp answers 405).
  * - One tool: set_avatar_state(state). Unknown states are ignored, not errors.
- * - Auth is always on. Either OAuth 2.1 (McpAuth: the client registers itself
- *   and the user approves with a code shown on the Echo Spot), or the device's
- *   own token (files/mcp_token, made on first start; scripts/set-mcp-token.ps1)
- *   as "Authorization: Bearer <token>" or "?key=<token>".
+ * - Auth is always on. Through a tunnel only OAuth 2.1 gets in (McpAuth: the
+ *   client registers itself; the person touches the Echo Spot and types the code
+ *   it then shows). Over USB or the LAN the device's own token also works, as
+ *   "Authorization: Bearer <token>" (files/mcp_token, made on first start;
+ *   scripts/set-mcp-token.ps1), for testing tools.
  * - Requests to /mcp carrying an Origin header are refused: no browser should
  *   call it, and it blocks DNS rebinding from web pages on the same network.
  *
@@ -87,7 +88,7 @@ object McpServer {
         version = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0"
         ensureToken()
         auth = McpAuth(filesDir) { event ->
-            if (event is McpAuth.PairingEvent.Show) wakeScreen()
+            if (event is McpAuth.PairingEvent.Request) wakeScreen()
             onPairing?.invoke(event)
         }
         val socket = try {
@@ -197,7 +198,7 @@ object McpServer {
                         extra: Map<String, String> = emptyMap()) {
         val bytes = body.toByteArray(Charsets.UTF_8)
         val reason = mapOf(200 to "OK", 201 to "Created", 202 to "Accepted", 204 to "No Content",
-            302 to "Found", 400 to "Bad Request", 401 to "Unauthorized", 403 to "Forbidden",
+            302 to "Found", 400 to "Bad Request", 401 to "Unauthorized", 403 to "Forbidden", 429 to "Too Many Requests",
             404 to "Not Found", 405 to "Method Not Allowed", 500 to "Internal Server Error")[status] ?: "OK"
         val head = StringBuilder("HTTP/1.1 $status $reason\r\n")
         if (type != null) head.append("Content-Type: $type\r\n")
@@ -261,6 +262,18 @@ object McpServer {
         respond(out, 404, "text/plain", "not found")
     }
 
+    /**
+     * True for a request that came in through a tunnel (ngrok, Cloudflare...): they always add
+     * forwarding headers, and a client on the internet cannot remove them.
+     */
+    private fun throughTunnel(request: Request) = listOf("x-forwarded-for", "forwarded", "cf-connecting-ip",
+        "x-forwarded-host", "ngrok-trace-id").any { it in request.headers }
+
+    /** Called by MainActivity on any touch: accepts a waiting connection request. */
+    fun screenTouched() {
+        if (::auth.isInitialized) workers.execute { auth.accept() }
+    }
+
     private fun handleMcp(request: Request, out: OutputStream, base: String) {
         if (request.headers.containsKey("origin")) {
             Log.w(TAG, "Refused a request with Origin ${request.headers["origin"]}")
@@ -269,10 +282,11 @@ object McpServer {
         }
         val bearer = request.headers["authorization"]?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
             ?.substring(7)?.trim()
-        val key = request.query["key"]
+        // The device's own token is for testing over USB or the LAN only (as a header, never in the URL):
+        // through a tunnel only OAuth gets in.
         val expected = token()
-        val allowed = (expected != null && (bearer == expected || key == expected)) ||
-            (bearer != null && auth.isValidAccessToken(bearer))
+        val localToken = expected != null && bearer == expected && !throughTunnel(request)
+        val allowed = localToken || (bearer != null && auth.isValidAccessToken(bearer))
         if (!allowed) {
             // Points OAuth clients at the metadata (RFC 9728), so a URL alone is enough to connect.
             val challenge = "Bearer resource_metadata=\"$base$RESOURCE_METADATA${request.path}\"" +
@@ -321,6 +335,7 @@ object McpServer {
                 is McpAuth.AuthorizeResult.Page -> page(out, result.id, result.clientName, result.redirectOrigin, null)
                 is McpAuth.AuthorizeResult.Redirect -> respond(out, 302, null, "", mapOf("Location" to result.location))
                 is McpAuth.AuthorizeResult.Fail -> message(out, 400, result.message)
+                McpAuth.AuthorizeResult.Busy -> message(out, 429, appContext.getString(R.string.pair_busy))
             }
             "POST" -> {
                 // The approval form posts to itself; refuse a cross-site post.
@@ -333,7 +348,8 @@ object McpServer {
                 when (val result = auth.approve(form["request"].orEmpty(), form["code"].orEmpty(), form["deny"] != null)) {
                     is McpAuth.ApproveResult.Redirect -> respond(out, 302, null, "", mapOf("Location" to result.location))
                     is McpAuth.ApproveResult.Retry -> page(out, result.id, result.clientName, result.redirectOrigin,
-                        appContext.getString(R.string.pair_wrong, result.attemptsLeft))
+                        if (result.notAccepted) appContext.getString(R.string.pair_touch_first)
+                        else appContext.getString(R.string.pair_wrong, result.attemptsLeft))
                     McpAuth.ApproveResult.Expired -> message(out, 400, appContext.getString(R.string.pair_expired))
                 }
             }

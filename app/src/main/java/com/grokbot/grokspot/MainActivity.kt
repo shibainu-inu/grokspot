@@ -58,6 +58,8 @@ class MainActivity : ComponentActivity() {
     /** The OAuth pairing code (McpAuth) shown on the face page until it is used or expires. */
     private val mcpPairing: (McpAuth.PairingEvent) -> Unit = { event ->
         val script = when (event) {
+            is McpAuth.PairingEvent.Request ->
+                "grokspot.pairing.request(${JSONObject.quote(event.client)}, ${event.expiresInMs})"
             is McpAuth.PairingEvent.Show ->
                 "grokspot.pairing.show(${JSONObject.quote(event.code)}, ${JSONObject.quote(event.client)}, ${event.expiresInMs})"
             is McpAuth.PairingEvent.Approved -> "grokspot.pairing.done(${JSONObject.quote(event.client)})"
@@ -168,7 +170,11 @@ class MainActivity : ComponentActivity() {
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         // Touching the face counts as activity, so a dark room does not switch it off mid-use.
-        if (event.actionMasked == MotionEvent.ACTION_DOWN) GrokButtonService.noteActivity()
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            GrokButtonService.noteActivity()
+            // A waiting MCP connection request is accepted by touching the screen.
+            McpServer.screenTouched()
+        }
         trackSettingsHold(event)
         return super.dispatchTouchEvent(event)
     }

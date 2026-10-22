@@ -23,7 +23,9 @@
     <string name="avatar_function_description">改变屏幕上头像的表情。不会被说出来。只在想表达语气或情绪时使用。</string>
     <!-- MCP 授权页面（OAuth 配对），在用户的浏览器中打开。 -->
     <string name="pair_title">连接到 GrokSpot</string>
-    <string name="pair_prompt">想要改变 Echo Spot 上的表情。请输入 Echo Spot 屏幕上显示的 6 位代码。</string>
+    <string name="pair_prompt">想要改变 Echo Spot 上的表情。轻触 Echo Spot 的屏幕即可显示 6 位代码，然后在此输入。</string>
+    <string name="pair_touch_first">还没有显示代码。请先轻触 Echo Spot 的屏幕。</string>
+    <string name="pair_busy">连接请求过多。请稍后再试。</string>
     <string name="pair_allow">允许</string>
     <string name="pair_deny">拒绝</string>
     <string name="pair_wrong">代码不正确。还可以输入 %1$d 次。</string>

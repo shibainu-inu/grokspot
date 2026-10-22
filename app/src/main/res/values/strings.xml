@@ -23,7 +23,9 @@
     <string name="avatar_function_description">Changes the expression of the avatar on the screen. It is not spoken. Use it only when you want to convey a nuance.</string>
     <!-- MCP approval page (OAuth pairing), opened in the user's browser. -->
     <string name="pair_title">Connect to GrokSpot</string>
-    <string name="pair_prompt">wants to change the face on your Echo Spot. Enter the 6-digit code shown on the Echo Spot screen.</string>
+    <string name="pair_prompt">wants to change the face on your Echo Spot. Touch the screen of the Echo Spot to show a 6-digit code, then enter it here.</string>
+    <string name="pair_touch_first">No code yet. Touch the screen of the Echo Spot first.</string>
+    <string name="pair_busy">Too many connection requests. Please wait a while and try again.</string>
     <string name="pair_allow">Allow</string>
     <string name="pair_deny">Deny</string>
     <string name="pair_wrong">That code is not right. %1$d tries left.</string>

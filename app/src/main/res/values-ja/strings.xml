@@ -22,7 +22,9 @@
     <string name="avatar_function_description">画面のアバターの表情を変える。音声には出ない。ニュアンスを伝えたいときだけ使う。</string>
     <!-- MCP の許可ページ（OAuth のペアリング）。ユーザーのブラウザで開く。 -->
     <string name="pair_title">GrokSpot に接続</string>
-    <string name="pair_prompt">が Echo Spot の顔を動かそうとしています。Echo Spot の画面に表示されている 6 桁のコードを入力してください。</string>
+    <string name="pair_prompt">が Echo Spot の顔を動かそうとしています。Echo Spot の画面に触れると 6 桁のコードが表示されるので、それを入力してください。</string>
+    <string name="pair_touch_first">まだコードが表示されていません。先に Echo Spot の画面に触れてください。</string>
+    <string name="pair_busy">接続の申請が多すぎます。しばらく待ってから、もう一度お試しください。</string>
     <string name="pair_allow">許可する</string>
     <string name="pair_deny">拒否する</string>
     <string name="pair_wrong">コードが違います。あと %1$d 回入力できます。</string>

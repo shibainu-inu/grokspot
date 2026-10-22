@@ -93,9 +93,9 @@ powershell -ExecutionPolicy Bypass -File scripts\set-voice-search.ps1           
 
 スマホや PC の Grok（grok.com）から顔を動かすこともできます。Echo Spot の MCP サーバーを自分のトンネル（ngrok など）で公開し、Grok のカスタムコネクタに登録します。共有の中継サーバーは使いません。
 
-手順の詳細（トンネルの立て方、コネクタ登録、6桁コードによる許可、Grok側の指示文など）は [docs/MCP.md](docs/MCP.md) にあります。
+手順の詳細（トンネルの立て方、コネクタ登録、画面に触れて出る6桁コードによる許可、Grok側の指示文など）は [docs/MCP.md](docs/MCP.md) にあります。
 
-許可できたら、Grok に「Echo Spot の顔を curious にして」と頼むと画面の顔が変わります。認証は OAuth 2.1 で、目の前に Echo Spot がある人しか許可できません。
+許可できたら、Grok に「Echo Spot の顔を curious にして」と頼むと画面の顔が変わります。認証は OAuth 2.1 で、Echo Spot の画面に触れて出るコードで許可するので、目の前に Echo Spot がある人しか許可できません。
 
 ## 構成
 

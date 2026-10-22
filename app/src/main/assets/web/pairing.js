@@ -1,6 +1,8 @@
-// GrokSpot pairing: the code an MCP client's user types to approve it (OAuth,
-// McpAuth.kt). The app calls show() when a connection request comes in, hide()
-// when it is used or dropped, and done() once it is approved.
+// GrokSpot pairing: approving an MCP client (OAuth, McpAuth.kt) from the screen.
+// The app calls request() when a client asks to connect (the screen says "touch
+// to accept"; a touch anywhere goes to the app, which then makes the code),
+// show() with the code to type into the approval page, hide() when it is used
+// or dropped, and done() once it is approved.
 (function () {
   'use strict';
 
@@ -27,6 +29,15 @@
     box.classList.remove('show');
   }
 
+  /** A client asks to connect: ask for a touch; no code exists yet. */
+  function request(name, ms) {
+    title.textContent = t('pair.request');
+    client.textContent = name;
+    code.textContent = '';
+    hint.textContent = t('pair.touch');
+    open(ms);
+  }
+
   /** Shows `digits` (six) for `ms`, saying which client asked. */
   function show(digits, name, ms) {
     title.textContent = t('pair.title');
@@ -46,5 +57,5 @@
     window.grokspot.external.emphasize();
   }
 
-  window.grokspot.pairing = { show: show, hide: hide, done: done };
+  window.grokspot.pairing = { request: request, show: show, hide: hide, done: done };
 })();
