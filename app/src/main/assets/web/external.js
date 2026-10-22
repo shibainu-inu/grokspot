@@ -23,13 +23,15 @@
   // How often to check that the captioned state is still the one showing.
   var CAPTION_CHECK_MS = 400;
 
-  // Default captions. Feelings get an emoji; actions a word from i18n.js (caption.<state>).
+  // Default captions. Feelings get an emoji; actions a word: in English for every
+  // language (WORD), or from i18n.js (caption.<state>) for the rest.
   // No face emoji: they are hard to make out at this size on the Echo Spot.
   var EMOJI = {
     happy: '❤️', excited: '✨', celebrate: '🎉', curious: '👀', confused: '❓',
     surprised: '⁉️', sad: '💧', angry: '💢', bored: '💤',
   };
-  var PHRASE = { thinking: true, working: true, searching: true, alerting: true, notifying: true, listening: true };
+  var WORD = { thinking: 'Thinking', working: 'Working', searching: 'Searching', listening: 'Listening' };
+  var PHRASE = { alerting: true, notifying: true };
 
   var hold = null;
   var ring = document.getElementById('mcp-ring');
@@ -53,6 +55,7 @@
 
   function defaultCaption(name) {
     if (EMOJI[name]) return EMOJI[name];
+    if (WORD[name]) return WORD[name];
     if (PHRASE[name]) return window.grokspotI18n.t('caption.' + name);
     return '';
   }
