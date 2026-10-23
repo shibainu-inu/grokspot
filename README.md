@@ -1,5 +1,7 @@
 # GrokSpot
 
+**日本語** | [English](README.en.md) | [中文](README.zh-CN.md)
+
 Echo Spot（2017年発売の丸い画面の Amazon 端末）を、**話しかけると顔で応える GrokBot 専用端末**に作り変える Android アプリです。
 LineageOS を入れた Echo Spot の上で動き、xAI の Grok Voice API と音声で会話します。
 
@@ -27,7 +29,7 @@ LineageOS を入れた Echo Spot の上で動き、xAI の Grok Voice API と音
 | 入力待ちの表示 | 話しかけてよいときは画面の縁が青く光り、「話しかけてください」と出る |
 | 待機中の暮らし | 休んでいる間も小さな仕草を続け、見回す・考えごと・鼻歌・落書き・遊ぶ・変形を試してみる などを、その都度組み合わせて自然につなぐ。気分と元気で選ぶものが変わり、まれにくしゃみやひとりダンスも。夜は朝まで眠る |
 | タッチ | 目と頭が指を追う。頭のてっぺんを撫でる・目をつつく・体をつつく・何もない所を触る・連打で反応が変わる |
-| GrokBot から操作（MCP） | 内蔵の MCP サーバー（ポート 8765）のツール `set_avatar_state`（状態に合った絵文字や単語が画面の下に出る）と `get_avatar_state` で、スマホや PC の GrokBot が顔を動かせる。詳しくは [docs/MCP.md](docs/MCP.md) |
+| GrokBot から操作（MCP） | 内蔵の MCP サーバー（ポート 8765）のツール `set_avatar_state`（状態に合った絵文字が画面の下に出る）と `get_avatar_state` で、スマホや PC の GrokBot が顔を動かせる。詳しくは [docs/MCP.md](docs/MCP.md) |
 | 変形とエフェクト | 考え中の「・・・」、警告の「！」、レーダー、進捗リング、ペンなど 14 種の変形と、紙吹雪・虹色の軌跡 |
 | 専用端末として | ホームアプリとして起動。暗い部屋では画面が消え、明るくなるとつく。ボタン長押しで電源メニュー |
 
@@ -115,7 +117,7 @@ app/src/main/assets/web/
   fx.js                  紙吹雪・虹色の軌跡・変形の部品の描画
   actions.js             「聞く」「考える」などの動作 → 表情の対応表
   voice.js               会話のイベント → 表情（仕様は docs/AVATAR-STATE-SPEC.md）
-  external.js            MCP から届いた状態 → 表情、画面下の絵文字・単語、縁の光
+  external.js            MCP から届いた状態 → 表情、画面下の絵文字、縁の光
   pairing.js             OAuth の確認コードを画面に出す
   life.js                待機中の暮らし（元気の値、昼と夜）
   touch.js               タッチの位置ごとの反応
