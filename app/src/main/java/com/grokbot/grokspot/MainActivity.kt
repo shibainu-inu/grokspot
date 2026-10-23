@@ -126,7 +126,12 @@ class MainActivity : ComponentActivity() {
         hideSystemBars()
         // The page shows its text in the language Android picked for this app's resources,
         // so the screen, the settings and Grok's voice always agree.
-        webView.loadUrl("$PAGE_URL?lang=${getString(R.string.ui_language)}")
+        // Face, eye and background colours, e.g. to match a white Echo Spot
+        // (files/face_color: "body=rrggbb", "eye=rrggbb", "background=rrggbb"; scripts/set-face-color.ps1).
+        val colors = java.io.File(filesDir, FACE_COLOR_FILE).takeIf { it.isFile }?.readText().orEmpty()
+        val query = Regex("(body|eye|background)=([0-9a-fA-F]{6})").findAll(colors)
+            .joinToString("") { "&${it.groupValues[1]}=${it.groupValues[2]}" }
+        webView.loadUrl("$PAGE_URL?lang=${getString(R.string.ui_language)}$query")
 
         voice = VoiceSession(this, object : VoiceSession.Listener {
             override fun onVoiceEvent(type: String, detail: String?) {
@@ -281,5 +286,6 @@ class MainActivity : ComponentActivity() {
         const val SETTINGS_HOLD_MS = 5_000L
         const val REQUEST_MIC = 1
         const val PAGE_URL = "https://appassets.androidplatform.net/assets/web/index.html"
+        const val FACE_COLOR_FILE = "face_color"
     }
 }

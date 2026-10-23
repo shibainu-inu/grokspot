@@ -144,7 +144,7 @@ class VoiceSession(private val context: Context, private val listener: Listener)
         return JSONObject()
             .put("type", "session.update")
             .put("session", JSONObject()
-                .put("voice", VOICE)
+                .put("voice", voice())
                 .put("instructions", instructions)
                 .put("turn_detection", JSONObject().put("type", "server_vad"))
                 .put("audio", JSONObject()
@@ -164,6 +164,16 @@ class VoiceSession(private val context: Context, private val listener: Listener)
         return listOfNotNull("web_search".takeIf { "web" in wanted }, "x_search".takeIf { "x" in wanted })
     }
 
+    /**
+     * The voice: files/voice_name (scripts/set-voice.ps1) if set, else [DEFAULT_VOICE].
+     * A built-in voice name such as "iris" or a custom voice ID.
+     */
+    private fun voice(): String {
+        val text = File(context.filesDir, VOICE_FILE).takeIf { it.isFile }?.readText().orEmpty()
+        // Same byte order mark as above; voice names and IDs are letters, digits, '-' and '_'.
+        return text.filter { it.isLetterOrDigit() || it == '-' || it == '_' }.ifEmpty { DEFAULT_VOICE }
+    }
+
     private fun pcmFormat() = JSONObject().put("type", "audio/pcm").put("rate", SAMPLE_RATE)
 
     /**
@@ -177,7 +187,7 @@ class VoiceSession(private val context: Context, private val listener: Listener)
 
     private inner class Events : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
-            Log.i(TAG, "Connected (search: ${searchTools().ifEmpty { listOf("off") }.joinToString()})")
+            Log.i(TAG, "Connected (voice: ${voice()}, search: ${searchTools().ifEmpty { listOf("off") }.joinToString()})")
             send(sessionConfig())
             player = Player()
             mic = Thread(::recordLoop, "GrokSpot-mic").also { it.start() }
@@ -440,7 +450,8 @@ class VoiceSession(private val context: Context, private val listener: Listener)
         const val TAG = "GrokVoice"
         const val URL = "wss://api.x.ai/v1/realtime"
         const val MODEL = "grok-voice-latest"
-        const val VOICE = "eve"
+        const val DEFAULT_VOICE = "eve"
+        const val VOICE_FILE = "voice_name"
         const val KEY_FILE = "xai_api_key"
         const val SEARCH_FILE = "voice_search"
         const val SAMPLE_RATE = 24_000

@@ -32,6 +32,7 @@ It runs on an Echo Spot with LineageOS and talks with you by voice through xAI's
 | Control from GrokBot (MCP) | A built-in MCP server (port 8765) offers the tools `set_avatar_state` (an emoji that fits the state appears at the bottom of the screen) and `get_avatar_state`, so GrokBot on your phone or PC can move the face. See [docs/MCP.md](docs/MCP.md) (Japanese) |
 | Morphs and effects | 14 morphs such as the thinking "...", the warning "!", a radar, a progress ring and a pen, plus confetti and rainbow trails |
 | A dedicated device | Starts as the home app. The screen turns off in a dark room and back on when it gets bright. Hold the button for the power menu |
+| Voice and colours | Pick Grok's voice (eve, iris and more) and the face, eye and background colours per device — e.g. a pink face on white for a white Echo Spot |
 
 Screenshot: life while idle (play → hum → drowsy → sleep → wake up)
 
@@ -40,7 +41,7 @@ Screenshot: life while idle (play → hum → drowsy → sleep → wake up)
 ## Requirements
 
 - An **Echo Spot (1st generation, 2017)** running **LineageOS 18.1 (Android 11)**.
-  This is an unofficial port. **This repository does not cover installing LineageOS.** Modifying the device may not be reversible; do it at your own risk. This README starts from a device that already runs LineageOS and covers building and installing the app.
+  This is an unofficial port. The **overall flow and the common pitfalls** are summarized in sections A and B of [docs/SETUP.md](docs/SETUP.md) (Japanese; the steps I actually followed on two devices). The XDA threads below are the authoritative and up-to-date source. **Modifying the device may not be reversible; do it at your own risk.**
 
   Where to look (unofficial):
   - Unlock and TWRP: [XDA - UNLOCK/ROOT/TWRP for Echo Spot 2017 (rook)](https://xdaforums.com/t/unlock-root-twrp-unbrick-amazon-echo-spot-2017-rook.4754878/)
@@ -52,13 +53,17 @@ Screenshot: life while idle (play → hum → drowsy → sleep → wake up)
   - adb (Android SDK Platform-Tools)
 - An **xAI API key** (Grok Voice is billed by usage; see "[Grok Voice pricing and search](#grok-voice-pricing-and-search)" below)
 
-The detailed docs under `docs/` and the messages the scripts print are in Japanese. The app itself, its settings texts and Grok's voice switch between Japanese, English and Chinese with the device language.
+The detailed docs under `docs/` and the messages the scripts print are in Japanese. The app's screen and settings texts switch between Japanese, English and Chinese with the device language, and Grok answers in whatever language you speak.
 
 ## Quick start
 
 The full steps are in [docs/SETUP.md](docs/SETUP.md) (Japanese). In short:
 
 ```powershell
+# 0. Install LineageOS on the Echo Spot and turn on USB debugging (sections A and B of SETUP.md)
+git clone https://github.com/shibainu-inu/grokspot.git
+cd grokspot
+
 # 1. Build the app and install it on the Echo Spot (the face drawing library is included prebuilt)
 .\gradlew.bat :app:installDebug
 
@@ -66,7 +71,15 @@ The full steps are in [docs/SETUP.md](docs/SETUP.md) (Japanese). In short:
 powershell -ExecutionPolicy Bypass -File scripts\set-api-key.ps1
 
 # 3. Turn on the button service and make it the home app (steps 5–7 in SETUP.md)
+
+# 4. Set the display language and time zone (B-5 or step 8 in SETUP.md). Grok answers in the language you speak
+
+# 5. Optionally, change the voice and colours (step 9 in SETUP.md)
+powershell -ExecutionPolicy Bypass -File scripts\set-voice.ps1 iris
+powershell -ExecutionPolicy Bypass -File scripts\set-face-color.ps1 pink -Eye white -Background white
 ```
+
+> **Tip**: Doing this with an AI coding tool such as Claude Code on your PC, with the Echo Spot connected over Micro USB, makes building and tweaking much easier. Give it the setup guide and it runs the `adb` commands step by step; tweaks like "make the face light blue" or "change the voice" are small changes to the scripts and settings it can make for you. See "Tips" in [docs/SETUP.md](docs/SETUP.md).
 
 ### Grok Voice pricing and search
 
@@ -132,6 +145,8 @@ scripts/
   set-mcp-token.ps1      Manages MCP auth (show or remake the token, revoke OAuth approvals)
   mcp-call.ps1           Calls the MCP server from your PC to check it works
   set-ngrok.ps1          Writes the ngrok authtoken and domain so the app opens the tunnel
+  set-voice.ps1          Picks the Grok Voice voice (eve by default)
+  set-face-color.ps1     Picks the face, eye and background colours (white face, black eyes, black background by default)
 docs/ (Japanese)
   SETUP.md               Detailed steps from preparing the device to installing
   DESIGN.md              Design intent and how it works
@@ -144,7 +159,7 @@ The design thinking (why expressions are passed by function calls, why you can't
 ## Known limitations
 
 - **You can't interrupt Grok while it speaks.** The Echo Spot has no echo canceler, so the mic audio is not sent while Grok is talking.
-- **Languages are Japanese, English and Chinese (Simplified).** The screen texts, the settings texts and the language Grok speaks all follow the device language (English for any other language). To add a language, add it to `res/values-xx/strings.xml` and `assets/web/i18n.js`.
+- **Display languages are Japanese, English and Chinese (Simplified).** The screen texts and the settings texts follow the device language (English for any other language). Grok answers in the language you speak to it. To add a language, add it to `res/values-xx/strings.xml` and `assets/web/i18n.js`.
 - **The API key is stored on the device in plain text.** It is meant for a dedicated device used by one person. The key is kept in the app's private storage (other apps can't read it) and is never in the APK or the repository.
 - It assumes a debug build (writing the API key uses `run-as`).
 - Not tested on devices other than the Echo Spot (LineageOS 18.1).

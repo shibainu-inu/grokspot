@@ -196,6 +196,12 @@
   #pairing .pair-client { color: #fff; font-weight: 600; max-width: 300px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #pairing .pair-code { font: 700 64px/1 system-ui, sans-serif; letter-spacing: 6px; margin: 18px 0 14px; color: #fff; }
   #pairing .pair-hint { color: #aaa; font-size: 15px; max-width: 300px; }
+  /* 明るい背景（白い Echo Spot 向け、index.html の background=）。文字を濃い青にする。 */
+  /* 陰影を胴体より大きくすると明るい背景に灰色の縁が出るので、同じ大きさにする（白い縁は見えない）。 */
+  body.light #shade { width: var(--body); height: var(--body); }
+  body.light #label { color: #5b6476; }
+  body.light #mic-hint,
+  body.light #caption { color: #1b88cc; }
   @keyframes mic-breathe {
     0%, 100% { opacity: 0.25; }
     50% { opacity: 0.8; }
@@ -297,11 +303,43 @@
     { label: 'Done', state: 'celebrate', ms: 4200 }
   ];
 
+  // Colours from files/face_color (?body= / ?eye= / ?background=, rrggbb), e.g. a pink face
+  // with white eyes on white for a white Echo Spot. The body is painted in its colour and
+  // #shade multiplies the same grey shading over it; parts drawn without #shade (side dots,
+  // the "!" bar, morph parts) get the grey stops multiplied by it here.
+  function param(name) { return (new RegExp('[?&]' + name + '=([0-9a-fA-F]{6})').exec(location.search) || [])[1]; }
+  var tint = param('body');
+  var eye = param('eye');
+  var background = param('background');
+  if (background) {
+    document.documentElement.style.background = document.body.style.background = '#' + background;
+    var rgb = [0, 2, 4].map(function (i) { return parseInt(background.substr(i, 2), 16); });
+    // Light backgrounds get darker text (the hints are pale blue for a dark screen).
+    if (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2] > 160) document.body.classList.add('light');
+  }
+  function tinted(grey) {
+    if (!tint) return grey;
+    var out = '#';
+    for (var i = 0; i < 3; i += 1) {
+      var g = parseInt(grey.substr(1 + i * 2, 2), 16);
+      var t = parseInt(tint.substr(i * 2, 2), 16);
+      out += ('0' + Math.round(g * t / 255).toString(16)).slice(-2);
+    }
+    return out;
+  }
+  if (tint) {
+    var stops = ['#fefefe', '#f4f4f4', '#dedede', '#bbbbbb'].map(tinted);
+    var ball = 'radial-gradient(circle at 58% 44%, ' + stops[0] + ' 0%, ' + stops[1] + ' 14%, ' +
+      stops[2] + ' 48%, ' + stops[3] + ' 100%)';
+    document.querySelectorAll('.side-dot').forEach(function (dot) { dot.style.background = ball; });
+    document.querySelectorAll('#ball stop').forEach(function (stop, i) { stop.setAttribute('stop-color', stops[i]); });
+  }
+
   var bot = new lib.GrokBot(document.getElementById('face'), {
     state: 'idle',
     shape: 'blob',
     // grokbot_color.png に合わせた色。胴体は白で描き、陰影は #shade で付ける。
-    theme: { bodyColor: '#ffffff', eyeColor: '#0c0c0c', badgeColor: '#ffffff' },
+    theme: { bodyColor: tint ? '#' + tint : '#ffffff', eyeColor: eye ? '#' + eye : '#0c0c0c', badgeColor: '#ffffff' },
     // 状態ごとの表情プールを自動で巡回させる（既定は false で、表情が固定される）。
     autoExpression: true,
     // まばたきは motion.js がまぶた（eyeOpen）で行う。
@@ -319,13 +357,16 @@
     minEyeGap: 5
   });
 
+  var fx = new window.GrokSpotEffects(document.getElementById('fx-back'), document.getElementById('fx-front'));
+  fx.partColor = tinted('#dedede');
+
   // 体の揺れ・まぶた・視線・回転（x.ai の Avatar motion system を再現）。
   var motion = new window.GrokSpotMotion(bot, {
     face: document.getElementById('face'),
     shade: document.getElementById('shade'),
     sideDots: document.querySelectorAll('.side-dot'),
     bangBar: document.getElementById('bang-bar'),
-    fx: new window.GrokSpotEffects(document.getElementById('fx-back'), document.getElementById('fx-front')),
+    fx: fx,
     frameRate: 30,
     blinkCadence: function (state) { return lib.stateData[state].blinkCadence; }
   });

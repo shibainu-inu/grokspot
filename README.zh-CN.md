@@ -32,6 +32,7 @@
 | 从 GrokBot 控制（MCP） | 内置的 MCP 服务器（端口 8765）提供工具 `set_avatar_state`（屏幕下方会显示与状态相符的表情符号）和 `get_avatar_state`，手机或电脑上的 GrokBot 可以借此改变表情。详见 [docs/MCP.md](docs/MCP.md)（日语） |
 | 变形和特效 | 思考中的“…”、警告的“！”、雷达、进度环、笔等 14 种变形，以及彩纸和彩虹轨迹 |
 | 作为专用设备 | 作为主屏幕应用启动。房间变暗时屏幕熄灭，变亮时重新点亮。长按按钮打开电源菜单 |
+| 声音和颜色 | 每台设备都可以选择 Grok 的声音（eve、iris 等）以及脸、眼睛和背景的颜色。例如白色的 Echo Spot 可以用粉色的脸配白色背景 |
 
 截图：待机时的日常（玩耍 → 哼歌 → 犯困 → 睡觉 → 醒来）
 
@@ -40,7 +41,7 @@
 ## 需要准备
 
 - 刷入 **LineageOS 18.1（Android 11）** 的 **Echo Spot（第一代，2017 年）**。
-  使用的是非官方移植版。**本仓库不介绍如何刷入 LineageOS。** 改动设备可能无法恢复原状，请自行承担风险。本 README 以已经刷好 LineageOS 的设备为前提，介绍应用的构建和安装。
+  使用的是非官方移植版。刷机的**大致流程和容易出错的地方**整理在 [docs/SETUP.md](docs/SETUP.md) 的 A、B 两节（日语；作者在两台设备上实际操作的步骤）。详细内容和最新信息以下方的 XDA 帖子为准。**改动设备可能无法恢复原状，请自行承担风险。**
 
   刷机参考（非官方）：
   - 解锁和 TWRP：[XDA - UNLOCK/ROOT/TWRP for Echo Spot 2017 (rook)](https://xdaforums.com/t/unlock-root-twrp-unbrick-amazon-echo-spot-2017-rook.4754878/)
@@ -52,13 +53,17 @@
   - adb（Android SDK Platform-Tools）
 - **xAI 的 API 密钥**（Grok Voice 按用量收费，参考下方的“[Grok Voice 的费用与搜索](#grok-voice-的费用与搜索)”）
 
-`docs/` 下的详细文档和脚本输出的信息都是日语。应用本身、设置界面的文字以及 Grok 说话的语言，会跟随设备语言在日语、英语和中文之间切换。
+`docs/` 下的详细文档和脚本输出的信息都是日语。应用的屏幕文字和设置界面的文字会跟随设备语言在日语、英语和中文之间切换，Grok 则会用你说话的语言回答。
 
 ## 快速开始
 
 详细步骤见 [docs/SETUP.md](docs/SETUP.md)（日语）。大致流程如下：
 
 ```powershell
+# 0. 给 Echo Spot 刷入 LineageOS，并打开 USB 调试（SETUP.md 的 A、B 两节）
+git clone https://github.com/shibainu-inu/grokspot.git
+cd grokspot
+
 # 1. 构建应用并安装到 Echo Spot（表情绘制库已附带构建好的版本）
 .\gradlew.bat :app:installDebug
 
@@ -66,7 +71,15 @@
 powershell -ExecutionPolicy Bypass -File scripts\set-api-key.ps1
 
 # 3. 启用按钮服务，并设为主屏幕应用（SETUP.md 的第 5～7 步）
+
+# 4. 设置显示语言和时区（SETUP.md 的 B-5 或第 8 步）。Grok 会用你说话的语言回答
+
+# 5. 按喜好更改声音和颜色（SETUP.md 的第 9 步）
+powershell -ExecutionPolicy Bypass -File scripts\set-voice.ps1 iris
+powershell -ExecutionPolicy Bypass -File scripts\set-face-color.ps1 pink -Eye white -Background white
 ```
+
+> **小技巧**：在电脑上使用 Claude Code 等 AI 编程工具，并用 Micro USB 连着 Echo Spot 进行操作，构建和调整都会轻松很多。把安装文档交给它，它会依次执行 `adb` 命令；“把脸改成浅蓝色”“换个声音”之类的调整，也只需让它稍微修改脚本和设置。详见 [docs/SETUP.md](docs/SETUP.md) 的“Tips”。
 
 ### Grok Voice 的费用与搜索
 
@@ -132,6 +145,8 @@ scripts/
   set-mcp-token.ps1      管理 MCP 认证（显示或重建令牌、撤销 OAuth 授权）
   mcp-call.ps1           从电脑调用 MCP 服务器，检查是否正常工作
   set-ngrok.ps1          写入 ngrok 的 authtoken 和域名，让应用打开隧道
+  set-voice.ps1          选择 Grok Voice 的声音（默认 eve）
+  set-face-color.ps1     选择脸、眼睛和背景的颜色（默认白色的脸、黑色的眼睛、黑色背景）
 docs/（日语）
   SETUP.md               从准备设备到安装的详细步骤
   DESIGN.md              设计意图和工作原理
@@ -144,7 +159,7 @@ docs/（日语）
 ## 已知限制
 
 - **Grok 说话时不能打断。** Echo Spot 没有回声消除功能，所以 Grok 说话时不会发送麦克风的声音。
-- **支持的语言为日语、英语和中文（简体）。** 屏幕文字、设置界面的文字和 Grok 说话的语言都会跟随设备语言一起切换（其他语言时使用英语）。要添加语言，请在 `res/values-xx/strings.xml` 和 `assets/web/i18n.js` 中添加。
+- **显示语言支持日语、英语和中文（简体）。** 屏幕文字和设置界面的文字会跟随设备语言切换（其他语言时使用英语）。Grok 会用你说话的语言回答。要添加语言，请在 `res/values-xx/strings.xml` 和 `assets/web/i18n.js` 中添加。
 - **API 密钥以明文保存在设备中。** 本应用设想的是一个人使用的专用设备。密钥保存在应用的私有存储中（其他应用无法读取），不会进入 APK 和仓库。
 - 以调试版构建为前提（写入 API 密钥时使用 `run-as`）。
 - 未在 Echo Spot（LineageOS 18.1）以外的设备上测试过。

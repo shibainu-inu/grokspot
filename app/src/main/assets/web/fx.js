@@ -36,6 +36,8 @@
     this.lanes = [];
     this.count = 4;
     this.hueBase = 0;
+    // The head's mid tone; index.html tints it with the face colour.
+    this.partColor = PART_COLOR;
     this.lastAngle = 0;
     this.velocity = 0;
     this.launched = false;
@@ -258,8 +260,8 @@
     if (part.opacity <= 0.004) return;
     var ctx = this.backCtx;
     ctx.globalAlpha = Math.min(1, part.opacity);
-    ctx.fillStyle = part.color || PART_COLOR;
-    ctx.strokeStyle = part.color || PART_COLOR;
+    ctx.fillStyle = part.color || this.partColor;
+    ctx.strokeStyle = part.color || this.partColor;
     ctx.beginPath();
     switch (part.kind) {
       case 'dot':
