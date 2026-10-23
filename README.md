@@ -91,9 +91,9 @@ powershell -ExecutionPolicy Bypass -File scripts\set-voice-search.ps1           
 
 ### 自分の GrokBot から顔を動かす（任意）
 
-スマホや PC の Grok（grok.com）から顔を動かすこともできます。Echo Spot の MCP サーバーを自分のトンネル（ngrok など）で公開し、Grok のカスタムコネクタに登録します。共有の中継サーバーは使いません。
+スマホや PC の Grok（grok.com）から顔を動かすこともできます。アプリが自分の ngrok アカウントでトンネルを開き、Echo Spot の MCP サーバーを公開します。その URL を Grok のカスタムコネクタに登録します。PC を動かし続ける必要はなく、共有の中継サーバーも使いません。
 
-手順の詳細（トンネルの立て方、コネクタ登録、画面に触れて出る6桁コードによる許可、Grok側の指示文など）は [docs/MCP.md](docs/MCP.md) にあります。
+手順の詳細（ngrok の設定、コネクタ登録、画面に触れて出る6桁コードによる許可、Grok側の指示文など）は [docs/MCP.md](docs/MCP.md) にあります。
 
 許可できたら、Grok に「Echo Spot の顔を curious にして」と頼むと画面の顔が変わります。認証は OAuth 2.1 で、Echo Spot の画面に触れて出るコードで許可するので、目の前に Echo Spot がある人しか許可できません。
 
@@ -105,6 +105,7 @@ app/src/main/java/com/grokbot/grokspot/
   VoiceSession.kt        Grok Voice（wss://api.x.ai/v1/realtime）との会話。マイク送信・音声再生・イベント通知
   McpServer.kt           MCP サーバー（Streamable HTTP、ポート 8765）。ツール set_avatar_state / get_avatar_state
   McpAuth.kt             MCP の OAuth 2.1（画面の確認コードで許可）
+  NgrokTunnel.kt         MCP サーバーへの ngrok トンネルをアプリ内で開く（Wi-Fi が戻ったらすぐつなぎ直す）
   GrokButtonService.kt   ユーザー補助サービス。ボタン操作（押す・2 回押し・長押し）と、暗い部屋での画面オン・オフ
 app/src/main/assets/web/
   index.html             顔のページ。入力待ちの輪と文字
@@ -126,6 +127,7 @@ scripts/
   set-voice-search.ps1   Grok Voice の検索（Web・X）をオン・オフする（既定はオフ）
   set-mcp-token.ps1      MCP の認証の管理（トークンの表示・作り直し、OAuth の許可の取り消し）
   mcp-call.ps1           PC から MCP サーバーを呼んで動作を確かめる
+  set-ngrok.ps1          ngrok の authtoken とドメインを書き込み、アプリがトンネルを開くようにする
 docs/
   SETUP.md               端末の準備からインストールまでの詳しい手順
   DESIGN.md              設計の意図と仕組み

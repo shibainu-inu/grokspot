@@ -155,23 +155,19 @@ npx @modelcontextprotocol/inspector --cli http://127.0.0.1:8765/mcp --transport 
 
 Grok のカスタムコネクタは、**インターネットから届く URL** しか登録できません（`localhost` や LAN のアドレスは受け付けません）。そのため、自分のトンネルで公開用の URL を作ります（[xAI のドキュメント](https://docs.x.ai/grok/connectors)）。登録画面には URL の欄しかなく、認証は OAuth で進めます。
 
-1. **トンネルを立てる**。おすすめは [ngrok](https://ngrok.com/) です（無料アカウントで固定の URL が 1 つもらえ、HTTPS の 443 番ポートだけでつながるので、制限の厳しいネットワークでも使えます）。
+1. **トンネルを用意する**。GrokSpot は [ngrok](https://ngrok.com/) のトンネルを**アプリの中で**開きます。PC を動かし続ける必要はありません。ngrok は HTTPS の 443 番ポートだけでつながるので、制限の厳しいネットワークでも使えます。
+   1. ngrok の無料アカウントを作り、ダッシュボードで **authtoken** と、**Domains** にある固定ドメイン（`<名前>.ngrok-free.dev` など、無料で 1 つ）を確かめます。
+   2. authtoken をコピーしてから、Echo Spot を USB でつないだ PC で次を実行します。authtoken はクリップボードから読み、画面にもファイルにも残しません（会話や共有画面に貼らないでください）。
 
-   ```powershell
-   winget install --id Ngrok.Ngrok -e
-   ngrok update                                  # winget の版は古いことがある
-   # authtoken は会話や共有画面に出さないよう、自分の PowerShell ウィンドウで設定する
-   ngrok config add-authtoken <ngrok の authtoken>
-   # USB でつないだ PC から（adb の転送を使う）
-   adb forward tcp:8765 tcp:8765
-   ngrok http 8765 --url https://<あなたの固定ドメイン>.ngrok-free.dev
-   # Echo Spot と同じ LAN にいる PC からなら、転送なしで
-   ngrok http http://<Echo Spot の IP>:8765 --url https://<あなたの固定ドメイン>.ngrok-free.dev
-   ```
+      ```powershell
+      powershell -ExecutionPolicy Bypass -File scripts\set-ngrok.ps1 -Domain <あなたの固定ドメイン>.ngrok-free.dev
+      ```
 
-   固定ドメインは ngrok のダッシュボードの **Domains** にあります。
+   3. 30 秒ほどでアプリがトンネルを開きます（再起動は要りません）。開いたかは `adb logcat -s GrokNgrok` の `Tunnel up` で確かめられます。
 
-   [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) のクイックトンネル（`cloudflared tunnel --url http://127.0.0.1:8765`）も使えますが、外向きの 7844 番ポートを使うので、会社や学校などのネットワークではつながらないことがあります。また URL が毎回変わります。
+   無料プランでは同じ authtoken で同時に 1 か所しかつながりません。PC でも同じドメインの ngrok を動かしているなら止めてください。
+
+   アプリのトンネルを使わず、自分で用意したトンネル（PC の ngrok や cloudflared など）で `http://<Echo Spot の IP>:8765` か `adb forward tcp:8765 tcp:8765` の先を公開しても構いません。そのときは `set-ngrok.ps1` は実行しないでください。
 
 2. **Grok に登録する**：[grok.com/connectors](https://grok.com/connectors) → **New Connector** → **Custom** で、次の URL を入れます（トークンは不要です）。
 
@@ -245,8 +241,19 @@ https://<あなたの固定ドメイン>.ngrok-free.dev/mcp/v3
 
 ### トンネルの運用
 
-- ngrok の固定ドメインなら、トンネルを立て直しても URL は変わらず、登録し直す必要はありません。cloudflared のクイックトンネルは毎回 URL が変わるので、そのたびに登録し直します。
-- トンネルを止めると、Grok からは届かなくなります（LAN 内からは引き続き使えます）。PC の起動時に自動で立てたいときは、ngrok を Windows のサービスとして登録します（`ngrok service install`）。
+- 固定ドメインなら、トンネルがつなぎ直しても URL は変わらず、登録し直す必要はありません。
+- Wi-Fi が切れても、戻ってインターネットにつながったと Android が確かめた時点で、すぐにつなぎ直します（2026-10-23 の確認では、Wi-Fi を戻してから 7 秒）。
+- トンネルをやめるときは `scripts\set-ngrok.ps1 -Remove` で authtoken を消し、アプリを起動し直します。ドメインや authtoken を書き換えたときも、反映は次の起動からです。
+- トンネルを止めても、LAN 内からは引き続き使えます。
+
+#### ngrok のライブラリについて
+
+アプリは [ngrok-java](https://github.com/ngrok/ngrok-java)（1.1.1、32 ビット ARM の Android 版）を使います。そのままでは Android で動かないため、2 か所に手を加えています。
+
+- **ネイティブライブラリの置き場所**：ngrok-java は本体（`libngrok_java.so`）を jar の中に入れて実行時に取り出しますが、Android のビルドはその .so を APK に入れません。ビルドのときに jar から取り出して APK の `lib/` に入れ、アプリから読み込みます。ngrok 自身の読み込みは失敗するので、飛ばされる初期化（`Runtime.init`）は `com.ngrok.AndroidRuntime` から呼びます。
+- **JNI の版**：本体の `JNI_OnLoad` が JNI 1.8 を返し、Android（1.6 まで）が読み込みを拒否します（`Bad JNI version`）。ビルドのときに、その戻り値の 1 バイトを 1.6 に書き換えます。1.8 で増えたのは Java のモジュール用の関数だけで、ngrok は使っていません。書き換える場所の中身が想定と違えばビルドを止めるので、ngrok-java の版を上げたときは場所を調べ直してください（`app/build.gradle.kts`）。
+
+APK は約 2.6 MB 大きくなります（インストール後に展開される本体は約 6 MB）。
 
 ## セキュリティ
 
@@ -258,6 +265,7 @@ https://<あなたの固定ドメイン>.ngrok-free.dev/mcp/v3
 | 回数の上限 | 申請は 10 分に 5 回、クライアントの登録も 10 分に 5 回まで。許可まで進まなかったクライアントは 1 時間で消え、許可済みのクライアントが押し出されることはない |
 | 鍵の保存 | アクセス用の鍵（24 時間）と更新用の鍵（180 日、使うたびに作り直す）は、ハッシュ（SHA-256）だけを端末に保存する |
 | 許可画面 | 他のサイトへの埋め込み禁止（`frame-ancestors 'none'`）、外部の読み込み禁止（CSP）、別サイトからの送信を拒否 |
+| ngrok の authtoken | アプリ専用の領域（`files/ngrok_authtoken`、本人だけ読める）に置く。APK や git には入らない。書き込みはクリップボードから標準入力で渡し、コマンドラインにも出さない |
 | 端末のトークン | 最初の起動時に端末が作る。`Authorization: Bearer` のヘッダーでだけ使え、USB や LAN からの要求に限る。トンネル経由の要求（`X-Forwarded-For` などが付いたもの）では使えない。URL に入れる方式はない |
 | Origin の拒否 | `/mcp` への `Origin` ヘッダー付きの要求（＝ブラウザからの要求）は 403 で拒否する。同じ LAN の Web ページから勝手に呼ばれるのを防ぐ（DNS リバインディング対策） |
 | できることの範囲 | 顔の状態を変えることだけ。音声・マイク・端末の操作には触れない |
@@ -275,11 +283,10 @@ https://<あなたの固定ドメイン>.ngrok-free.dev/mcp/v3
 
 ## 配布に向けた課題（今後）
 
-今のトンネルは開発用の構成です（PC で ngrok を動かし、USB の adb 転送で Echo Spot に中継する）。誰でも安全に使える形にするには、次を検討します。
-
 | 課題 | 今 | 方向性 |
 |---|---|---|
-| PC が要る | PC で ngrok と adb 転送を動かし続ける | Echo Spot だけで完結させる（アプリにトンネルを組み込む、または端末上でトンネルのエージェントを動かす）。後回し |
+| PC が要る | 初期設定のときだけ（authtoken の書き込み）。トンネルはアプリが開く（2026-10-23） | 端末の画面から設定できるようにするか検討 |
 | 認証 | OAuth 2.1 ＋画面の確認コード（実装済み） | Grok の実際のコネクタで OAuth が最後まで通るかを確かめる |
-| 初期設定 | URL を登録して画面のコードを入力するだけ（実装済み）。トークンも端末が作る | トンネルを立てる手順をさらに減らす |
+| 初期設定 | ngrok の authtoken とドメインを書き込み、URL を登録して画面のコードを入力する | 手順をさらに減らす |
 | 中継の運営 | 各自の ngrok アカウント | 共有の中継サーバーは置かない方針（運営が不要で、他人の通信を預からない）。各自が自分のトンネルのアカウントを使う |
+| ngrok-java | 2024-09 の 1.1.1 から更新がない。Android 向けに 2 か所手を加えている | 動かなくなったら、版の更新か別の方法を検討 |

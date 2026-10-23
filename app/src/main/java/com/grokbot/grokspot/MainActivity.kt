@@ -147,6 +147,7 @@ class MainActivity : ComponentActivity() {
         McpServer.queryPage = mcpQuery
         McpServer.takeSnapshot = mcpSnapshot
         McpServer.start(applicationContext)
+        NgrokTunnel.start(applicationContext)
     }
 
     /** Grok ボタン: 会話を始める・終える。 */
