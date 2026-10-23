@@ -55,5 +55,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 | AndroidX Activity, Core KTX, WebKit | Apache-2.0 |
 | OkHttp 4.12.0 (and Okio) | Apache-2.0 |
 | Kotlin standard library | Apache-2.0 |
+| ngrok-java 1.1.1 and ngrok-java-native 1.1.1 (linux-android-armv7) | Apache-2.0 OR MIT |
+| SLF4J API 2.0.6 | MIT |
+
+ngrok-java-native's `libngrok_java.so` is **modified** when the APK is built: the value its
+`JNI_OnLoad` returns is changed from JNI_VERSION_1_8 to JNI_VERSION_1_6 (one byte), because
+Android refuses 1.8. The library is also moved from the jar into the APK's `lib/`. See
+`app/build.gradle.kts` and docs/MCP.md. Upstream: https://github.com/ngrok/ngrok-java
 
 If you distribute a built APK, include these notices with it.
