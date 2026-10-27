@@ -1,1 +1,1 @@
-$(cat /tmp/README_ja_fixed.md)
+$(cat /tmp/readme_ja.md)
