@@ -1,1 +1,173 @@
-$(cat /tmp/readme_ja.md)
+# GrokSpot
+
+**日本語** | [English](README.en.md) | [中文](README.zh-CN.md)
+
+Echo Spot（2017年発売の丸い画面の Amazon 端末）を、**話しかけると顔で応える GrokBot 専用端末**に作り変える Android アプリです。
+LineageOS を入れた Echo Spot の上で動き、xAI の Grok Voice API と音声で会話します。
+
+> **非公式プロジェクトです。** xAI・Amazon とは一切関係がなく、承認も受けていません。
+> 「Grok」は xAI の商標、「Echo Spot」は Amazon の商標です。
+
+<p align="center">
+  <img src="docs/screenshot-listening.png" width="240" alt="話しかけるのを待っている GrokSpot">
+</p>
+
+![状態ごとの変形](docs/screenshot-morphs.png)
+
+## なぜ作ったか
+
+- GrokBot のアバターを見ていて、ふと「これを Echo Spot に映したらどうだろう」と思った。中古で取り寄せてみたら、ミュートボタンのマークが Grok に見えて、もうこれ以外の使い方が考えられなくなった。
+- **AI に「顔」を持たせるため。** 音声だけの AI は、今聞いているのか、考えているのか、話し終えたのかが分かりにくいものです。顔の表情と動きでそれを伝えます。
+- **生き物のように見せるため。** 待機中も止まった絵にはせず、自分で見回したり、うたた寝したり、夜は眠ったりします。触ると反応します。
+
+## できること
+
+| 機能 | 内容 |
+|---|---|
+| 音声会話 | 本体上部のボタン（元はマイクオフボタン）を押すと Grok Voice と会話。検索をオンにすれば、天気やニュースなどは Grok が Web・X を検索して答える。もう一度押すか、60 秒話さないと終了 |
+| 表情の連動 | 会話の進み具合（聞いている → 考えている → 話している → 待機）を表情で表示。Grok が自分で表情を選ぶこともある |
+| 入力待ちの表示 | 話しかけてよいときは画面の縁が青く光り、「話しかけてください」と出る |
+| 待機中の暮らし | 休んでいる間も小さな仕草を続け、見回す・考えごと・鼻歌・落書き・遊ぶ・変形を試してみる などを、その都度組み合わせて自然につなぐ。気分と元気で選ぶものが変わり、まれにくしゃみやひとりダンスも。夜は朝まで眠る |
+| タッチ | 目と頭が指を追う。頭のてっぺんを撫でる・目をつつく・体をつつく・何もない所を触る・連打で反応が変わる |
+| GrokBot から操作（MCP） | 内蔵の MCP サーバー（ポート 8765）のツール `set_avatar_state`（状態に合った絵文字が画面の下に出る）と `get_avatar_state` で、スマホや PC の GrokBot が顔を動かせる。詳しくは [docs/MCP.md](docs/MCP.md) |
+| 変形とエフェクト | 考え中の「・・・」、警告の「！」、レーダー、進捗リング、ペンなど 14 種の変形と、紙吹雪・虹色の軌跡 |
+| 専用端末として | ホームアプリとして起動。暗い部屋では画面が消え、明るくなるとつく。ボタン長押しで電源メニュー |
+| 声と色 | Grok の声（eve・iris など）と、顔・目・背景の色を端末ごとに選べる。白い Echo Spot にはピンクの顔と白い背景、など |
+
+スクリーンショット：待機中の暮らし（遊ぶ → 鼻歌 → うとうと → 睡眠 → 起床）
+
+![待機中の暮らし](docs/screenshot-life.png)
+
+## 必要なもの
+
+- **Echo Spot（第1世代、2017年）** に **LineageOS 18.1（Android 11）** を入れたもの。
+  非公式の移植版を使っています。入れ方の**流れとつまずきやすい点**は [docs/SETUP.md](docs/SETUP.md) の A・B にまとめました（作者が 2 台で実際に行った手順）。詳しい内容と最新の情報は、下の XDA のスレッドが正です。**端末の書き換えは元に戻せない場合があり、自己責任で行ってください。**
+
+  入れ方の参考先（非公式）：
+  - アンロックと TWRP：[XDA - UNLOCK/ROOT/TWRP for Echo Spot 2017 (rook)](https://xdaforums.com/t/unlock-root-twrp-unbrick-amazon-echo-spot-2017-rook.4754878/)
+  - LineageOS 18.1 のROM：[XDA - LineageOS 18.1 for the Amazon Echo Spot (2017)](https://xdaforums.com/t/rom-unofficial-11-rook-lineageos-18-1-for-the-amazon-echo-spot-2017.4762459/)
+  - ビルドのダウンロード：[amazon-oss/releases](https://github.com/amazon-oss/releases/releases/tag/lineage-18.1-rook-v0.3)
+- Windows PC（スクリプトは PowerShell 用。Android のビルド自体は macOS / Linux でも可能）
+  - Android Studio（同梱の JDK と Android SDK を使用）
+  - Node.js（顔の描画ライブラリを改造する場合のみ。ビルド済みのものを同梱しているので、普段は不要）
+  - adb（Android SDK Platform-Tools）
+- **xAI の API キー**（Grok Voice の利用料金がかかります。目安は下の「[Grok Voice の料金と検索](#grok-voice-の料金と検索)」）
+
+## クイックスタート
+
+詳しい手順は [docs/SETUP.md](docs/SETUP.md) を見てください。おおまかな流れは次のとおりです。
+
+```powershell
+# 0. Echo Spot に LineageOS を入れ、USB デバッグをオンにする（SETUP.md の A・B）
+git clone https://github.com/shibainu-inu/grokspot.git
+cd grokspot
+
+# 1. アプリをビルドして Echo Spot に入れる（顔の描画ライブラリはビルド済みのものを同梱）
+.\gradlew.bat :app:installDebug
+
+# 2. API キーをクリップボードにコピーしてから、端末に書き込む
+powershell -ExecutionPolicy Bypass -File scripts\set-api-key.ps1
+
+# 3. ボタン用のサービスを有効にし、ホームアプリにする（SETUP.md の手順 5〜7）
+
+# 4. 表示の言語とタイムゾーンを合わせる（SETUP.md の B-5 か手順 8）。会話は話しかけた言語で返ってくる
+
+# 5. 好みで、声と色を変える（SETUP.md の手順 9）
+powershell -ExecutionPolicy Bypass -File scripts\set-voice.ps1 iris
+powershell -ExecutionPolicy Bypass -File scripts\set-face-color.ps1 pink -Eye white -Background white
+```
+
+> **Tips**：PC の Claude Code などの AI のコーディングツールを使い、Echo Spot を Micro USB でつないだまま進めると、構築も調整もずっと楽です。手順書を渡せば `adb` のコマンドを順に実行してくれ、「顔を水色に」「声を変えて」のような調整も、スクリプトや設定を少し変えるだけで頼めます。詳しくは [docs/SETUP.md](docs/SETUP.md) の「Tips」。
+
+### Grok Voice の料金と検索
+
+ボタンで話す会話（Grok Voice）は、xAI の API の従量課金です。料金は変わることがあるので、使う前に [xAI の料金ページ](https://docs.x.ai/docs/models) を確かめてください（以下は 2026 年 10 月時点の目安）。
+
+| 項目 | 料金の目安 |
+|---|---|
+| Grok Voice（音声での会話） | 1 分あたり 0.08 ドル（1 時間 4.80 ドル） |
+| Web 検索 | 1,000 回あたり約 5 ドル（1 回約 0.005 ドル） |
+| X 検索 | 1,000 回あたり約 5 ドル。取得した投稿やプロフィールの数で決まる料金体系に変わったという情報もあり、1 回の検索で高くなることがある |
+
+- 会話は、ボタンを押してから、もう一度押すか 60 秒話さないと切れるまでの間だけつながります。つながっていない間は料金はかかりません。
+- 料金のほとんどは会話の長さで決まります。検索を使うと答えが長くなりやすく、その分の音声の料金も増えます。
+- 使いすぎが心配なら、xAI のコンソールで使用量を確かめたり、上限を設定したりしてください。
+
+**検索は、最初はオフです。** オフのままでも会話はできますが、天気やニュースなど最新の情報は答えられません。オンにするには、PC から次を実行します（次の会話から効きます）。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\set-voice-search.ps1 -Web        # Web 検索だけオン（おすすめ）
+powershell -ExecutionPolicy Bypass -File scripts\set-voice-search.ps1 -Web -X     # X 検索もオン
+powershell -ExecutionPolicy Bypass -File scripts\set-voice-search.ps1 -Off        # オフに戻す
+powershell -ExecutionPolicy Bypass -File scripts\set-voice-search.ps1             # 今の設定を見る
+```
+
+検索をオンにすると、Grok は必要なときに自分で検索してから答えます。検索の間、顔は「探している」表情になります。
+
+### 自分の GrokBot から顔を動かす（任意）
+
+スマホや PC の Grok（grok.com）から顔を動かすこともできます。アプリが自分の ngrok アカウントでトンネルを開き、Echo Spot の MCP サーバーを公開します。その URL を Grok のカスタムコネクタに登録します。PC を動かし続ける必要はなく、共有の中継サーバーも使いません。
+
+手順の詳細（ngrok の設定、コネクタ登録、画面に触れて出る6桁コードによる許可、Grok側の指示文など）は [docs/MCP.md](docs/MCP.md) にあります。
+
+許可できたら、Grok に「Echo Spot の顔を curious にして」と頼むと画面の顔が変わります。認証は OAuth 2.1 で、Echo Spot の画面に触れて出るコードで許可するので、目の前に Echo Spot がある人しか許可できません。
+
+## 構成
+
+```
+app/src/main/java/com/grokbot/grokspot/
+  MainActivity.kt        全画面の WebView。ボタンで会話の開始・終了、5 秒長押しで設定を開く抜け道
+  VoiceSession.kt        Grok Voice（wss://api.x.ai/v1/realtime）との会話。マイク送信・音声再生・イベント通知
+  McpServer.kt           MCP サーバー（Streamable HTTP、ポート 8765）。ツール set_avatar_state / get_avatar_state
+  McpAuth.kt             MCP の OAuth 2.1（画面の確認コードで許可）
+  NgrokTunnel.kt         MCP サーバーへの ngrok トンネルをアプリ内で開く（Wi-Fi が戻ったらすぐつなぎ直す）
+  GrokButtonService.kt   ユーザー補助サービス。ボタン操作（押す・2 回押し・長押し）と、暗い部屋での画面オン・オフ
+app/src/main/assets/web/
+  index.html             顔のページ。入力待ちの輪と文字
+  i18n.js                画面の文字（日本語・英語・中国語）
+  grokbot.js             顔の描画ライブラリ（grokbot-web に機能を足してビルドしたもの）
+  motion.js              体の動き・まばたき・目線・14 種の変形
+  fx.js                  紙吹雪・虹色の軌跡・変形の部品の描画
+  actions.js             「聞く」「考える」などの動作 → 表情の対応表
+  voice.js               会話のイベント → 表情（仕様は docs/AVATAR-STATE-SPEC.md）
+  external.js            MCP から届いた状態 → 表情、画面下の絵文字、縁の光
+  pairing.js             OAuth の確認コードを画面に出す
+  life.js                待機中の暮らし（元気の値、昼と夜）
+  touch.js               タッチの位置ごとの反応
+device/
+  Vendor_2454_Product_6500.kl   マイクオフボタンを Grok ボタンにするキー配置
+scripts/
+  build-web.ps1          描画ライブラリを改造したときに grokbot.js を作り直す（通常は不要）
+  set-api-key.ps1        API キーを端末のアプリ専用領域に書き込む
+  set-voice-search.ps1   Grok Voice の検索（Web・X）をオン・オフする（既定はオフ）
+  set-mcp-token.ps1      MCP の認証の管理（トークンの表示・作り直し、OAuth の許可の取り消し）
+  mcp-call.ps1           PC から MCP サーバーを呼んで動作を確かめる
+  set-ngrok.ps1          ngrok の authtoken とドメインを書き込み、アプリがトンネルを開くようにする
+  set-voice.ps1          Grok Voice の声を選ぶ（既定は eve）
+  set-face-color.ps1     顔・目・背景の色を選ぶ（既定は白い顔・黒い目・黒い背景）
+docs/
+  SETUP.md               端末の準備からインストールまでの詳しい手順
+  DESIGN.md              設計の意図と仕組み
+  AVATAR-STATE-SPEC.md   会話中のアバター状態遷移の仕様（Grok Voice API 版）
+  MCP.md                 MCP サーバーの使い方と、GrokBot への登録手順
+```
+
+設計の考え方（なぜ関数呼び出しで表情を渡すのか、なぜ会話中に割り込めないのか、など）は [docs/DESIGN.md](docs/DESIGN.md) に、会話中のアバターの状態遷移は Grok と共同でまとめた仕様書 [docs/AVATAR-STATE-SPEC.md](docs/AVATAR-STATE-SPEC.md) にあります。
+
+## 既知の制約
+
+- **マイクの感度が控えめです。** Echo Spot のマイクは感度が高くないため、端末の少し上で話すか、少し大きめの声で話さないと認識しにくいことがあります。
+- 使ってみてわかったこととして、子どもは元々大きく近くで話すのであまり気にならないみたいです。一緒に遊んでくれて助かっています。
+- **Grok の話の途中で割り込めません。** Echo Spot にはエコーキャンセラーがないため、Grok が話している間はマイクの音を送っていません。
+- **表示の言語は日本語・英語・中国語（簡体字）。** 画面の文字と設定画面の文言は、端末の言語設定に合わせて切り替わります（ほかの言語では英語）。Grok は話しかけた言葉の言語で答えます。言語を足すときは `res/values-xx/strings.xml` と `assets/web/i18n.js` に追加します。
+- **API キーは端末内に平文で置きます。** 一人で使う専用端末を想定しています。キーはアプリ専用領域（他のアプリからは読めない）に置き、APK とリポジトリには入りません。
+- デバッグビルドを前提にしています（API キーの書き込みに `run-as` を使うため）。
+- Echo Spot（LineageOS 18.1）以外の端末では試していません。
+
+## クレジットとライセンス
+
+- 顔の描画は [grokbot-web](https://github.com/Coiggahou2002/grokbot-web)（BSD-3-Clause）を使っています。grokbot-web は [nasawz/GrokBot](https://github.com/nasawz/GrokBot)（Flutter 版、BSD-3-Clause）の移植です。表情・形・状態のデザインは原作者のものです。
+  同梱版は、grokbot-web に GrokSpot 用の機能（まぶた、ウインク、目の間隔、フレームレートの上限など）を足してビルドした **改変版** です。追加した機能の一覧は [docs/SETUP.md](docs/SETUP.md) の手順 1 にあります。
+- 体の動き（motion.js）は、xAI の記事 [Designing Grok Bot](https://x.ai/news/designing-grok-bot) で公開されているアバターの振る舞いを参考に、独自に実装したものです。
+- 同梱・依存しているソフトウェアのライセンス表示は [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) にまとめています。
+- GrokSpot 自体は [BSD-3-Clause](LICENSE) です。
